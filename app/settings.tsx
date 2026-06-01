@@ -1,10 +1,3 @@
-/**
- * @file app/settings.tsx
- * @description Gestionnaire d'instances Ghost.
- *              Permet de lister, ajouter, supprimer et sélectionner les instances.
- *              Accessible depuis le header des deux tabs et au premier lancement.
- */
-
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -25,15 +18,12 @@ import {
   HelperText,
   ActivityIndicator,
   Divider,
+  useTheme,
 } from 'react-native-paper';
 
 import { useInstances, InstanceFormData, InstanceFormErrors } from '../src/hooks/useInstances';
 import { InstanceListItem } from '../src/components/InstanceListItem';
 import { GhostInstance } from '../src/store/instanceStore';
-
-// ---------------------------------------------------------------------------
-// Types locaux
-// ---------------------------------------------------------------------------
 
 interface FormState {
   name: string;
@@ -42,10 +32,6 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = { name: '', url: '', apiKey: '' };
-
-// ---------------------------------------------------------------------------
-// Écran
-// ---------------------------------------------------------------------------
 
 export default function SettingsScreen(): React.JSX.Element {
   const {
@@ -58,14 +44,12 @@ export default function SettingsScreen(): React.JSX.Element {
     setActiveInstance,
   } = useInstances();
 
+  const { colors } = useTheme();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<InstanceFormErrors>({});
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
-
-  // -------------------------------------------------------------------------
-  // Formulaire
-  // -------------------------------------------------------------------------
 
   function updateField(field: keyof FormState, value: string): void {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -107,10 +91,6 @@ export default function SettingsScreen(): React.JSX.Element {
     setSnackbarMessage('Instance ajoutée et connectée avec succès.');
   }
 
-  // -------------------------------------------------------------------------
-  // Sélection d'une instance
-  // -------------------------------------------------------------------------
-
   async function handleSelectInstance(instance: GhostInstance): Promise<void> {
     if (instance.id === activeInstanceId) return;
     try {
@@ -121,22 +101,18 @@ export default function SettingsScreen(): React.JSX.Element {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Rendu
-  // -------------------------------------------------------------------------
-
   const isSubmitting = isTesting;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {isLoading ? (
         <ActivityIndicator style={styles.loader} />
       ) : instances.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text variant="bodyLarge" style={styles.emptyText}>
+          <Text variant="bodyLarge" style={[styles.emptyText, { color: colors.onBackground }]}>
             Aucune instance Ghost configurée.
           </Text>
-          <Text variant="bodyMedium" style={styles.emptySubText}>
+          <Text variant="bodyMedium" style={{ color: colors.onSurfaceVariant, textAlign: 'center' }}>
             Appuyez sur + pour ajouter votre première instance.
           </Text>
         </View>
@@ -157,21 +133,17 @@ export default function SettingsScreen(): React.JSX.Element {
         />
       )}
 
-      {/* FAB d'ajout */}
       <FAB icon="plus" style={styles.fab} onPress={openModal} />
 
-      {/* Modal d'ajout d'instance */}
       <Portal>
         <Modal
           visible={modalVisible}
           onDismiss={closeModal}
-          contentContainerStyle={styles.modal}
+          contentContainerStyle={[styles.modal, { backgroundColor: colors.surface }]}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          >
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <ScrollView>
-              <Text variant="titleLarge" style={styles.modalTitle}>
+              <Text variant="titleLarge" style={[styles.modalTitle, { color: colors.onSurface }]}>
                 Nouvelle instance Ghost
               </Text>
               <Divider style={styles.divider} />
@@ -245,7 +217,6 @@ export default function SettingsScreen(): React.JSX.Element {
         </Modal>
       </Portal>
 
-      {/* Feedback */}
       <Snackbar
         visible={!!snackbarMessage}
         onDismiss={() => setSnackbarMessage(null)}
@@ -257,14 +228,9 @@ export default function SettingsScreen(): React.JSX.Element {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   loader: {
     marginTop: 48,
@@ -287,17 +253,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
   },
-  emptySubText: {
-    textAlign: 'center',
-    color: '#757575',
-  },
   fab: {
     position: 'absolute',
     right: 20,
     bottom: 20,
   },
   modal: {
-    backgroundColor: '#fff',
     margin: 20,
     borderRadius: 16,
     padding: 24,

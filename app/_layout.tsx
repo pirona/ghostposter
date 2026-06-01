@@ -1,51 +1,34 @@
-/**
- * @file app/_layout.tsx
- * @description Layout racine de l'application.
- *              Configure les providers (Paper, SafeArea, GestureHandler)
- *              et charge les instances Ghost au démarrage.
- *              Aucune logique métier — uniquement la navigation et les providers.
- */
-
 import React, { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, useColorScheme } from 'react-native';
 import { Stack } from 'expo-router';
-import { PaperProvider, MD3LightTheme } from 'react-native-paper';
+import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts, Barlow_700Bold } from '@expo-google-fonts/barlow';
 
 import { useInstanceStore } from '../src/store/instanceStore';
+import { lightTheme, darkTheme } from '../src/theme';
 
-// ---------------------------------------------------------------------------
-// Thème React Native Paper
-// ---------------------------------------------------------------------------
-
-const theme = {
-  ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: '#1565C0',
-    secondary: '#546E7A',
-  },
-};
-
-// ---------------------------------------------------------------------------
-// Layout
-// ---------------------------------------------------------------------------
-
-export default function RootLayout(): React.JSX.Element {
+export default function RootLayout(): React.JSX.Element | null {
   const loadInstances = useInstanceStore((s) => s.loadInstances);
+  const colorScheme = useColorScheme();
+  const [fontsLoaded] = useFonts({ Barlow_700Bold });
 
   useEffect(() => {
     loadInstances();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  if (!fontsLoaded) return null;
+
+  const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <PaperProvider theme={theme}>
-          <StatusBar style="auto" />
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen
@@ -62,10 +45,6 @@ export default function RootLayout(): React.JSX.Element {
     </GestureHandlerRootView>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   root: {

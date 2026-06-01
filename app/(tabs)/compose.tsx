@@ -1,11 +1,4 @@
-/**
- * @file app/(tabs)/compose.tsx
- * @description Éditeur de post Ghost.
- *              Gère la création et l'édition en Markdown,
- *              l'aperçu HTML sandboxé, l'upload d'image et la publication.
- */
-
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -22,19 +15,15 @@ import {
   Chip,
   IconButton,
   ActivityIndicator,
+  useTheme,
 } from 'react-native-paper';
 import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
 
 import { usePostStore } from '../../src/store/postStore';
 import { usePostEditor } from '../../src/hooks/usePostEditor';
 import { TagChipList } from '../../src/components/TagChipList';
 import { MarkdownPreview } from '../../src/components/MarkdownPreview';
 import { ImagePickerButton } from '../../src/components/ImagePickerButton';
-
-// ---------------------------------------------------------------------------
-// Écran
-// ---------------------------------------------------------------------------
 
 export default function ComposeScreen(): React.JSX.Element {
   const {
@@ -48,6 +37,8 @@ export default function ComposeScreen(): React.JSX.Element {
   const { isDirty, isEditMode, originalStatus, isSaving, error, handleSave, confirmLeaveIfDirty } =
     usePostEditor();
 
+  const { colors } = useTheme();
+
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
@@ -56,21 +47,22 @@ export default function ComposeScreen(): React.JSX.Element {
   const content = currentPost?.markdownContent ?? '';
   const tags = currentPost?.tags ?? [];
 
-  // Réinitialise l'éditeur quand l'onglet perd le focus
-  // (uniquement si le post a été sauvegardé — isDirty=false)
+  // Sur focus : réinitialise si on arrive sur un post édité sans l'avoir modifié
+  // (évite que l'ancien post reste affiché quand on veut composer du nouveau)
   useFocusEffect(
     useCallback(() => {
+      if (isEditMode && !isDirty) {
+        resetCurrentPost();
+        setIsPreviewMode(false);
+        setTitleError(null);
+      }
       return () => {
         if (!isDirty) {
           setIsPreviewMode(false);
         }
       };
-    }, [isDirty]),
+    }, [isDirty, isEditMode, resetCurrentPost]),
   );
-
-  // -------------------------------------------------------------------------
-  // Handlers
-  // -------------------------------------------------------------------------
 
   function handleTitleChange(value: string): void {
     setTitle(value);
@@ -113,30 +105,20 @@ export default function ComposeScreen(): React.JSX.Element {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Détermination des actions disponibles
-  // -------------------------------------------------------------------------
-  // - Nouveau post ou brouillon : Sauvegarder draft + Publier
-  // - Post publié : Sauvegarder + Dépublier
   const isPublished = originalStatus === 'published';
-
-  // -------------------------------------------------------------------------
-  // Rendu
-  // -------------------------------------------------------------------------
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={96}
     >
-      {/* Badge de mode édition */}
       {isEditMode && (
         <View style={styles.editBanner}>
           <Chip
             compact
             icon={isPublished ? 'eye' : 'pencil'}
-            style={styles.editChip}
+            style={[styles.editChip, { backgroundColor: colors.primary + '22' }]}
           >
             {isPublished ? 'Édition — publié' : 'Édition — brouillon'}
           </Chip>
@@ -148,7 +130,6 @@ export default function ComposeScreen(): React.JSX.Element {
         </View>
       )}
 
-      {/* Toolbar de l'éditeur */}
       <View style={styles.toolbar}>
         <View style={styles.toolbarLeft}>
           <IconButton
@@ -168,7 +149,6 @@ export default function ComposeScreen(): React.JSX.Element {
       </View>
       <Divider />
 
-      {/* Zone d'édition ou d'aperçu */}
       {isPreviewMode ? (
         <MarkdownPreview markdown={content} />
       ) : (
@@ -188,7 +168,7 @@ export default function ComposeScreen(): React.JSX.Element {
             returnKeyType="next"
           />
           {titleError && (
-            <Text style={styles.fieldError}>{titleError}</Text>
+            <Text style={[styles.fieldError, { color: colors.error }]}>{titleError}</Text>
           )}
 
           <TextInput
@@ -209,53 +189,31 @@ export default function ComposeScreen(): React.JSX.Element {
         </ScrollView>
       )}
 
-      {/* Actions */}
       <Divider />
-      <View style={styles.actions}>
+      <View style={[styles.actions, { backgroundColor: colors.surface }]}>
         {isSaving ? (
           <ActivityIndicator style={styles.activityIndicator} />
         ) : isPublished ? (
           <>
-            <Button
-              mode="outlined"
-              onPress={onPressDepublish}
-              disabled={isSaving}
-              style={styles.actionButton}
-            >
+            <Button mode="outlined" onPress={onPressDepublish} disabled={isSaving} style={styles.actionButton}>
               Dépublier
             </Button>
-            <Button
-              mode="contained"
-              onPress={onPressPublish}
-              disabled={isSaving}
-              style={styles.actionButton}
-            >
+            <Button mode="contained" onPress={onPressPublish} disabled={isSaving} style={styles.actionButton}>
               Sauvegarder
             </Button>
           </>
         ) : (
           <>
-            <Button
-              mode="outlined"
-              onPress={onPressSaveDraft}
-              disabled={isSaving}
-              style={styles.actionButton}
-            >
+            <Button mode="outlined" onPress={onPressSaveDraft} disabled={isSaving} style={styles.actionButton}>
               Brouillon
             </Button>
-            <Button
-              mode="contained"
-              onPress={onPressPublish}
-              disabled={isSaving}
-              style={styles.actionButton}
-            >
+            <Button mode="contained" onPress={onPressPublish} disabled={isSaving} style={styles.actionButton}>
               Publier
             </Button>
           </>
         )}
       </View>
 
-      {/* Feedback erreurs API */}
       <Snackbar
         visible={!!error && !snackbarMessage}
         onDismiss={() => {}}
@@ -276,14 +234,9 @@ export default function ComposeScreen(): React.JSX.Element {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
   },
   editBanner: {
     flexDirection: 'row',
@@ -293,9 +246,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
   },
-  editChip: {
-    backgroundColor: '#E3F2FD',
-  },
+  editChip: {},
   dirtyChip: {
     backgroundColor: '#FFF8E1',
   },
@@ -329,7 +280,6 @@ const styles = StyleSheet.create({
     minHeight: 200,
   },
   fieldError: {
-    color: '#D32F2F',
     fontSize: 12,
     marginTop: -8,
   },
@@ -338,7 +288,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 12,
     padding: 16,
-    backgroundColor: '#fff',
   },
   actionButton: {
     flex: 1,

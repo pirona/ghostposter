@@ -1,22 +1,11 @@
-/**
- * @file app/(tabs)/posts.tsx
- * @description Liste paginée de tous les posts Ghost (draft + published).
- *              Filtre par statut, swipe-to-delete, pull-to-refresh, infinite scroll.
- *              Un tap charge le post dans l'éditeur.
- */
-
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { StyleSheet, View, FlatList } from 'react-native';
-import { Text, Chip, Button, ActivityIndicator, Snackbar } from 'react-native-paper';
+import { Text, Chip, Button, ActivityIndicator, Snackbar, useTheme } from 'react-native-paper';
 import { useRouter, useFocusEffect } from 'expo-router';
 
 import { usePostStore } from '../../src/store/postStore';
 import { PostListItem } from '../../src/components/PostListItem';
 import { GhostPost, PostFilter } from '../../src/api/ghostTypes';
-
-// ---------------------------------------------------------------------------
-// Constantes
-// ---------------------------------------------------------------------------
 
 const FILTERS: Array<{ key: PostFilter | 'all'; label: string }> = [
   { key: 'all', label: 'Tous' },
@@ -24,12 +13,9 @@ const FILTERS: Array<{ key: PostFilter | 'all'; label: string }> = [
   { key: 'published', label: 'Publiés' },
 ];
 
-// ---------------------------------------------------------------------------
-// Écran
-// ---------------------------------------------------------------------------
-
 export default function PostsScreen(): React.JSX.Element {
   const router = useRouter();
+  const { colors } = useTheme();
   const {
     posts,
     statusFilter,
@@ -45,17 +31,12 @@ export default function PostsScreen(): React.JSX.Element {
 
   const [snackbarMessage, setSnackbarMessage] = React.useState<string | null>(null);
 
-  // Charge les posts au premier montage et lors d'un retour sur l'onglet
   useFocusEffect(
     useCallback(() => {
       fetchPosts(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statusFilter]),
   );
-
-  // -------------------------------------------------------------------------
-  // Handlers
-  // -------------------------------------------------------------------------
 
   function handlePostPress(post: GhostPost): void {
     loadPostForEditing(post);
@@ -80,10 +61,6 @@ export default function PostsScreen(): React.JSX.Element {
       fetchMorePosts();
     }
   }
-
-  // -------------------------------------------------------------------------
-  // Rendu de la liste
-  // -------------------------------------------------------------------------
 
   function renderHeader(): React.JSX.Element {
     return (
@@ -120,7 +97,7 @@ export default function PostsScreen(): React.JSX.Element {
     if (error) {
       return (
         <View style={styles.centered}>
-          <Text variant="bodyLarge" style={styles.errorText}>
+          <Text variant="bodyLarge" style={{ color: colors.error, textAlign: 'center' }}>
             {error}
           </Text>
           <Button onPress={() => fetchPosts(true)} style={styles.retryButton}>
@@ -132,7 +109,7 @@ export default function PostsScreen(): React.JSX.Element {
 
     return (
       <View style={styles.centered}>
-        <Text variant="bodyLarge" style={styles.emptyText}>
+        <Text variant="bodyLarge" style={{ color: colors.onSurfaceVariant, textAlign: 'center' }}>
           Aucun post trouvé.
         </Text>
       </View>
@@ -140,7 +117,7 @@ export default function PostsScreen(): React.JSX.Element {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
@@ -172,14 +149,9 @@ export default function PostsScreen(): React.JSX.Element {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   listContent: {
     paddingBottom: 24,
@@ -202,14 +174,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
     gap: 12,
-  },
-  emptyText: {
-    color: '#757575',
-    textAlign: 'center',
-  },
-  errorText: {
-    color: '#D32F2F',
-    textAlign: 'center',
   },
   retryButton: {
     marginTop: 8,

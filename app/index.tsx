@@ -1,25 +1,19 @@
-/**
- * @file app/index.tsx
- * @description Point d'entrée de l'application.
- *              Redirige vers Settings si aucune instance n'est configurée,
- *              vers la liste des posts sinon.
- *              Aucune logique métier — uniquement le routage conditionnel.
- */
-
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Redirect } from 'expo-router';
+import { useTheme } from 'react-native-paper';
 
 import { useInstanceStore } from '../src/store/instanceStore';
 
 export default function Index(): React.JSX.Element {
   const isLoading = useInstanceStore((s) => s.isLoading);
   const activeInstanceId = useInstanceStore((s) => s.activeInstanceId);
+  const { colors } = useTheme();
 
   if (isLoading) {
     return (
-      <View style={styles.splash}>
-        <ActivityIndicator size="large" color="#1565C0" />
+      <View style={[styles.splash, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -36,6 +30,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
   },
 });

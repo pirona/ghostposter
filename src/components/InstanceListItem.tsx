@@ -1,22 +1,9 @@
-/**
- * @file src/components/InstanceListItem.tsx
- * @description Carte représentant une instance Ghost dans le gestionnaire d'instances.
- *              Affiche le nom, l'URL et le badge "Actif".
- *              Swipe gauche pour faire apparaître le bouton de suppression.
- *
- * @exports InstanceListItem
- */
-
 import React, { useRef } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
-import { Text, Surface, Chip } from 'react-native-paper';
+import { Text, Surface, Chip, useTheme } from 'react-native-paper';
 import { Swipeable } from 'react-native-gesture-handler';
 
 import { GhostInstance } from '../store/instanceStore';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 export interface InstanceListItemProps {
   instance: GhostInstance;
@@ -25,15 +12,6 @@ export interface InstanceListItemProps {
   onDelete: (id: string) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Composant
-// ---------------------------------------------------------------------------
-
-/**
- * Carte instance avec swipe-to-delete.
- * Un tap sur une instance inactive la sélectionne comme instance active.
- * La suppression est gérée par le parent (confirmation Alert dans useInstances).
- */
 export function InstanceListItem({
   instance,
   isActive,
@@ -41,6 +19,7 @@ export function InstanceListItem({
   onDelete,
 }: InstanceListItemProps): React.JSX.Element {
   const swipeableRef = useRef<Swipeable>(null);
+  const { colors } = useTheme();
 
   function handleDeletePress(): void {
     swipeableRef.current?.close();
@@ -60,10 +39,12 @@ export function InstanceListItem({
       ref={swipeableRef}
       renderRightActions={renderRightActions}
       friction={2}
-      // Désactive le swipe sur l'instance active pour éviter une suppression accidentelle
       enabled={!isActive}
     >
-      <Surface style={[styles.surface, isActive && styles.surfaceActive]} elevation={1}>
+      <Surface
+        style={[styles.surface, isActive && { borderWidth: 2, borderColor: colors.primary }]}
+        elevation={1}
+      >
         <TouchableOpacity
           style={styles.content}
           onPress={() => onPress(instance)}
@@ -75,12 +56,16 @@ export function InstanceListItem({
               {instance.name}
             </Text>
             {isActive && (
-              <Chip compact style={styles.activeBadge} textStyle={styles.activeBadgeText}>
+              <Chip
+                compact
+                style={{ backgroundColor: colors.primary + '22' }}
+                textStyle={{ color: colors.primary, fontSize: 11, fontWeight: '600' }}
+              >
                 Actif
               </Chip>
             )}
           </View>
-          <Text style={styles.url} variant="bodySmall" numberOfLines={1}>
+          <Text style={[styles.url, { color: colors.onSurfaceVariant }]} variant="bodySmall" numberOfLines={1}>
             {instance.url}
           </Text>
         </TouchableOpacity>
@@ -89,19 +74,11 @@ export function InstanceListItem({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
   surface: {
     marginHorizontal: 16,
     marginVertical: 6,
     borderRadius: 12,
-  },
-  surfaceActive: {
-    borderWidth: 2,
-    borderColor: '#1565C0',
   },
   content: {
     padding: 16,
@@ -117,17 +94,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
-  url: {
-    color: '#757575',
-  },
-  activeBadge: {
-    backgroundColor: '#1565C022',
-  },
-  activeBadgeText: {
-    color: '#1565C0',
-    fontSize: 11,
-    fontWeight: '600',
-  },
+  url: {},
   deleteAction: {
     backgroundColor: '#D32F2F',
     justifyContent: 'center',
