@@ -71,10 +71,16 @@ function DrawerContent(props: DrawerContentComponentProps): React.JSX.Element {
               <TouchableRipple
                 key={instance.id}
                 onPress={() => handleSwitchInstance(instance.id)}
-                rippleColor={colors.primary + '22'}
+                rippleColor={colors.primary + '33'}
               >
-                <View style={[styles.instanceRow, isActive && { backgroundColor: colors.primaryContainer }]}>
-                  <View style={[styles.instanceDot, { backgroundColor: isActive ? colors.primary : colors.outlineVariant }]} />
+                <View style={[
+                  styles.instanceRow,
+                  isActive && { backgroundColor: colors.primaryContainer },
+                ]}>
+                  <View style={[
+                    styles.instanceDot,
+                    { backgroundColor: isActive ? colors.primary : colors.outlineVariant },
+                  ]} />
                   <Text
                     variant="bodyMedium"
                     style={{ color: isActive ? colors.onPrimaryContainer : colors.onSurface, flex: 1 }}
@@ -82,9 +88,7 @@ function DrawerContent(props: DrawerContentComponentProps): React.JSX.Element {
                   >
                     {instance.name}
                   </Text>
-                  {isActive && (
-                    <List.Icon icon="check" color={colors.primary} />
-                  )}
+                  {isActive && <List.Icon icon="check" color={colors.primary} />}
                 </View>
               </TouchableRipple>
             );
@@ -110,8 +114,8 @@ function DrawerContent(props: DrawerContentComponentProps): React.JSX.Element {
       <Divider style={styles.divider} />
 
       <List.Item
-        title="Gérer les instances"
-        left={(p) => <List.Icon {...p} icon="server-plus" color={colors.onSurfaceVariant} />}
+        title="Paramètres"
+        left={(p) => <List.Icon {...p} icon="cog-outline" color={colors.onSurfaceVariant} />}
         onPress={() => { close(); router.push('/settings'); }}
         titleStyle={{ color: colors.onSurfaceVariant }}
       />
@@ -120,22 +124,21 @@ function DrawerContent(props: DrawerContentComponentProps): React.JSX.Element {
 }
 
 export default function DrawerLayout(): React.JSX.Element {
+  const { colors } = useTheme();
+
   return (
     <Drawer
       drawerContent={(props) => <DrawerContent {...props} />}
       screenOptions={{
         drawerType: 'slide',
         swipeEdgeWidth: 80,
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.onSurface,
+        headerShadowVisible: false,
       }}
     >
-      <Drawer.Screen
-        name="posts"
-        options={{ title: 'Posts' }}
-      />
-      <Drawer.Screen
-        name="compose"
-        options={{ title: 'Compose' }}
-      />
+      <Drawer.Screen name="posts" options={{ title: 'Posts' }} />
+      <Drawer.Screen name="compose" options={{ title: 'Compose' }} />
     </Drawer>
   );
 }

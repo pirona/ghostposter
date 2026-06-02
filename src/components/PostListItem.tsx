@@ -5,6 +5,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 
 import { GhostPost } from '../api/ghostTypes';
 import { StatusBadge } from './StatusBadge';
+import { useSettingsStore } from '../store/settingsStore';
 
 export interface PostListItemProps {
   post: GhostPost;
@@ -23,19 +24,20 @@ function formatDate(isoDate: string): string {
 export function PostListItem({ post, onPress, onDelete }: PostListItemProps): React.JSX.Element {
   const swipeableRef = useRef<Swipeable>(null);
   const { colors } = useTheme();
+  const confirmDelete = useSettingsStore((s) => s.confirmDelete);
 
   function handleDeletePress(): void {
     swipeableRef.current?.close();
+    if (!confirmDelete) {
+      onDelete(post.id);
+      return;
+    }
     Alert.alert(
       'Supprimer le post',
       `Supprimer "${post.title}" définitivement ?`,
       [
         { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: () => onDelete(post.id),
-        },
+        { text: 'Supprimer', style: 'destructive', onPress: () => onDelete(post.id) },
       ],
     );
   }

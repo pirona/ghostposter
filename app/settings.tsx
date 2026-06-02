@@ -18,10 +18,15 @@ import {
   HelperText,
   ActivityIndicator,
   Divider,
+  List,
+  SegmentedButtons,
+  Switch,
   useTheme,
 } from 'react-native-paper';
+import Constants from 'expo-constants';
 
 import { useInstances, InstanceFormData, InstanceFormErrors } from '../src/hooks/useInstances';
+import { useSettingsStore, ThemePreference, DefaultPostStatus } from '../src/store/settingsStore';
 import { InstanceListItem } from '../src/components/InstanceListItem';
 import { GhostInstance } from '../src/store/instanceStore';
 
@@ -44,12 +49,23 @@ export default function SettingsScreen(): React.JSX.Element {
     setActiveInstance,
   } = useInstances();
 
+  const {
+    themePreference,
+    defaultPostStatus,
+    confirmDelete,
+    setThemePreference,
+    setDefaultPostStatus,
+    setConfirmDelete,
+  } = useSettingsStore();
+
   const { colors } = useTheme();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<InstanceFormErrors>({});
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+
+  const appVersion = Constants.expoConfig?.version ?? '—';
 
   function updateField(field: keyof FormState, value: string): void {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -72,11 +88,7 @@ export default function SettingsScreen(): React.JSX.Element {
 
   async function handleSubmit(): Promise<void> {
     const errors: InstanceFormErrors = {};
-    const data: InstanceFormData = {
-      name: form.name,
-      url: form.url,
-      apiKey: form.apiKey,
-    };
+    const data: InstanceFormData = { name: form.name, url: form.url, apiKey: form.apiKey };
 
     const success = await addInstanceWithValidation(data, (field, message) => {
       errors[field] = message;
@@ -105,35 +117,121 @@ export default function SettingsScreen(): React.JSX.Element {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {isLoading ? (
-        <ActivityIndicator style={styles.loader} />
-      ) : instances.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text variant="bodyLarge" style={[styles.emptyText, { color: colors.onBackground }]}>
-            Aucune instance Ghost configurée.
+      <ScrollView contentContainerStyle={styles.scroll}>
+
+        {/* ── Apparence ── */}
+        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>
+          Apparence
+        </List.Subheader>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <Text variant="bodyMedium" style={[styles.settingLabel, { color: colors.onSurface }]}>
+            Thème
           </Text>
-          <Text variant="bodyMedium" style={{ color: colors.onSurfaceVariant, textAlign: 'center' }}>
-            Appuyez sur + pour ajouter votre première instance.
-          </Text>
+          <SegmentedButtons
+            value={themePreference}
+            onValueChange={(v) => setThemePreference(v as ThemePreference)}
+            buttons={[
+              { value: 'light', label: 'Clair', icon: 'white-balance-sunny' },
+              { value: 'system', label: 'Auto', icon: 'brightness-auto' },
+              { value: 'dark', label: 'Sombre', icon: 'weather-night' },
+            ]}
+            style={styles.segmented}
+          />
         </View>
-      ) : (
-        <FlatList
-          data={instances}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <InstanceListItem
-              instance={item}
-              isActive={item.id === activeInstanceId}
-              onPress={handleSelectInstance}
-              onDelete={() => removeInstanceWithConfirm(item)}
+
+        {/* ── Éditeur ── */}
+        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>
+          Éditeur
+        </List.Subheader>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <Text variant="bodyMedium" style={[styles.settingLabel, { color: colors.onSurface }]}>
+            Statut par défaut des nouveaux posts
+          </Text>
+          <SegmentedButtons
+            value={defaultPostStatus}
+            onValueChange={(v) => setDefaultPostStatus(v as DefaultPostStatus)}
+            buttons={[
+              { value: 'draft', label: 'Brouillon', icon: 'pencil' },
+              { value: 'published', label: 'Publié', icon: 'send' },
+            ]}
+            style={styles.segmented}
+          />
+
+          <Divider style={styles.inCardDivider} />
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabel}>
+              <Text variant="bodyMedium" style={{ color: colors.onSurface }}>
+                Confirmation avant suppression
+              </Text>
+              <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant }}>
+                Demander confirmation avant de supprimer un post
+              </Text>
+            </View>
+            <Switch
+              value={confirmDelete}
+              onValueChange={setConfirmDelete}
+              color={colors.primary}
+            />
+          </View>
+        </View>
+
+        {/* ── Instances Ghost ── */}
+        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>
+          Instances Ghost
+        </List.Subheader>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          {isLoading ? (
+            <ActivityIndicator style={styles.loader} />
+          ) : instances.length === 0 ? (
+            <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.onSurfaceVariant }]}>
+              Aucune instance configurée. Appuyez sur + pour en ajouter une.
+            </Text>
+          ) : (
+            <FlatList
+              data={instances}
+              keyExtractor={(item) => item.id}
+              scrollEnabled={false}
+              renderItem={({ item }) => (
+                <InstanceListItem
+                  instance={item}
+                  isActive={item.id === activeInstanceId}
+                  onPress={handleSelectInstance}
+                  onDelete={() => removeInstanceWithConfirm(item)}
+                />
+              )}
+              ItemSeparatorComponent={() => <Divider />}
             />
           )}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          contentContainerStyle={styles.list}
-        />
-      )}
+        </View>
 
-      <FAB icon="plus" style={styles.fab} onPress={openModal} />
+        {/* ── À propos ── */}
+        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>
+          À propos
+        </List.Subheader>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <List.Item
+            title="Version"
+            right={() => (
+              <Text variant="bodyMedium" style={{ color: colors.onSurfaceVariant, alignSelf: 'center' }}>
+                {appVersion}
+              </Text>
+            )}
+            titleStyle={{ color: colors.onSurface }}
+          />
+          <Divider />
+          <List.Item
+            title="Ghost Admin API"
+            description="v5 compatible"
+            titleStyle={{ color: colors.onSurface }}
+            descriptionStyle={{ color: colors.onSurfaceVariant }}
+          />
+        </View>
+
+        <View style={styles.bottomPad} />
+      </ScrollView>
+
+      <FAB icon="plus" style={[styles.fab, { backgroundColor: colors.primary }]} onPress={openModal} />
 
       <Portal>
         <Modal
@@ -232,26 +330,51 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loader: {
-    marginTop: 48,
-  },
-  list: {
-    paddingTop: 12,
+  scroll: {
     paddingBottom: 100,
   },
-  separator: {
-    height: 4,
+  subheader: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    paddingTop: 16,
   },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
+  card: {
+    marginHorizontal: 16,
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  settingLabel: {
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  segmented: {
+    marginTop: 4,
+  },
+  inCardDivider: {
+    marginVertical: 4,
+  },
+  switchRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 32,
-    gap: 8,
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  switchLabel: {
+    flex: 1,
+    gap: 2,
+  },
+  loader: {
+    paddingVertical: 16,
   },
   emptyText: {
     textAlign: 'center',
-    fontWeight: '600',
+    paddingVertical: 8,
+  },
+  bottomPad: {
+    height: 16,
   },
   fab: {
     position: 'absolute',

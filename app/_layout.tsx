@@ -8,18 +8,23 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts, Barlow_700Bold } from '@expo-google-fonts/barlow';
 
 import { useInstanceStore } from '../src/store/instanceStore';
+import { useSettingsStore } from '../src/store/settingsStore';
 import { lightTheme, darkTheme } from '../src/theme';
 
 export default function RootLayout(): React.JSX.Element {
   const loadInstances = useInstanceStore((s) => s.loadInstances);
-  const colorScheme = useColorScheme();
+  const loadSettings = useSettingsStore((s) => s.loadSettings);
+  const themePreference = useSettingsStore((s) => s.themePreference);
+  const systemColorScheme = useColorScheme();
   useFonts({ Barlow_700Bold });
 
   useEffect(() => {
     loadInstances();
+    loadSettings();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const colorScheme = themePreference === 'system' ? systemColorScheme : themePreference;
   const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
 
   return (
@@ -32,7 +37,7 @@ export default function RootLayout(): React.JSX.Element {
             <Stack.Screen
               name="settings"
               options={{
-                title: 'Instances Ghost',
+                title: 'Paramètres',
                 headerBackTitle: 'Retour',
               }}
             />
