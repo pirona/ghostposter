@@ -10,17 +10,15 @@ import { useFonts, Barlow_700Bold } from '@expo-google-fonts/barlow';
 import { useInstanceStore } from '../src/store/instanceStore';
 import { lightTheme, darkTheme } from '../src/theme';
 
-export default function RootLayout(): React.JSX.Element | null {
+export default function RootLayout(): React.JSX.Element {
   const loadInstances = useInstanceStore((s) => s.loadInstances);
   const colorScheme = useColorScheme();
-  const [fontsLoaded] = useFonts({ Barlow_700Bold });
+  useFonts({ Barlow_700Bold });
 
   useEffect(() => {
     loadInstances();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  if (!fontsLoaded) return null;
 
   const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
 
