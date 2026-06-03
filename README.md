@@ -98,7 +98,7 @@ This project is signed **billisdead** — visual artist and graphic designer, im
 
 If the app is useful to you and you'd like to support the work:
 
-→ **[Ko-fi](https://ko-fi.com/)** *(to be updated with Ko-fi handle)*
+→ **[Ko-fi](https://ko-fi.com/billisdead)**
 
 This is not commercial software. It's a tool I built for my own use, published because it might be useful to others, with full transparency about how it was made.
 
