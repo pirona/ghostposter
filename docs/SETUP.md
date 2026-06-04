@@ -6,10 +6,10 @@ Avant de commencer, assurez-vous d'avoir les outils suivants installés :
 
 - **Node.js** 20 LTS ou supérieur (`node --version`)
 - **npm** 10 ou supérieur (livré avec Node.js)
-- **Expo CLI** : `npm install -g expo-cli` (ou utiliser `npx expo` sans installation globale)
+- **Node.js** 20 LTS ou supérieur — requis pour le toolchain de build (`npx expo run:android`)
 - **Android Studio** avec un émulateur Android API 34+ configuré, ou un appareil physique Android avec les options développeur et le débogage USB activés
 
-Pour les builds locaux (`expo run:android`), Android Studio avec le SDK Android et les build tools est obligatoire. Pour builder un APK de release, voir [`BUILD_LOCAL.md`](BUILD_LOCAL.md).
+Pour les builds de release (APK signé), voir [`BUILD_LOCAL.md`](BUILD_LOCAL.md). Pour l'installation sans développement, téléchargez directement l'APK depuis les [Releases GitHub](https://github.com/billisdead/ghost-poster/releases).
 
 ## Installation
 

@@ -24,18 +24,20 @@ Expo SDK 52 · React Native Paper · Zustand · Axios · jose · expo-secure-sto
 
 ---
 
-## Installation
+## Getting the app
+
+Download the latest APK from the [Releases page](https://github.com/billisdead/ghost-poster/releases) and install it on your Android device.
+
+## Development setup
 
 ```bash
 git clone https://github.com/billisdead/ghost-poster.git
 cd ghost-poster
 npm install
-npx expo run:android
+npx expo run:android   # requires Android Studio or a connected device
 ```
 
-Requirements: Node.js 20+, Android Studio or a physical device in developer mode.
-
-To build a release APK locally or trigger a GitHub Actions release, see [`docs/BUILD_LOCAL.md`](docs/BUILD_LOCAL.md) and [`docs/RELEASE.md`](docs/RELEASE.md).
+To build a signed release APK or publish a new version, see [`docs/BUILD_LOCAL.md`](docs/BUILD_LOCAL.md) and [`docs/RELEASE.md`](docs/RELEASE.md).
 
 ## Ghost configuration
 

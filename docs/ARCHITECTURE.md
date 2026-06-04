@@ -22,7 +22,7 @@ Ce que l'application ne fait pas (hors scope) : gestion des membres Ghost, confi
 | turndown | HTML → Markdown | Conversion fidèle pour charger les posts Ghost dans l'éditeur |
 | marked | Markdown → HTML | Retourner le contenu édité vers l'API Ghost |
 | react-native-webview | Aperçu HTML sandboxé | Rendu isolé, JS désactivé, aucun lien externe accessible |
-| expo-image-picker | Sélection d'image galerie | Permission déclarée dans app.json, API cohérente Expo |
+| expo-image-picker | Sélection d'image galerie | Permission déclarée dans app.json, API unifiée Android/iOS |
 | expo-crypto | Génération UUID | randomUUID() natif compatible Hermes |
 | TypeScript strict | Typage statique | Détection des erreurs à la compilation, pas d'`any` |
 
