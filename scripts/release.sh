@@ -60,5 +60,14 @@ git tag "v$NEW_VERSION"
 git push origin main
 git push origin "v$NEW_VERSION"
 
-echo ""
-echo "✓ Tag v$NEW_VERSION poussé — GitHub Actions va builder et créer la Release."
+# Pousse aussi le tag directement sur GitHub pour déclencher GitHub Actions
+# (le miroir Gitea ne transmet pas forcément les tags)
+if git remote | grep -q "^github$"; then
+  git push github main
+  git push github "v$NEW_VERSION"
+  echo ""
+  echo "✓ Tag v$NEW_VERSION poussé sur Gitea + GitHub — GitHub Actions va builder."
+else
+  echo ""
+  echo "✓ Tag v$NEW_VERSION poussé — ajoute 'github' comme remote si GitHub Actions ne se déclenche pas."
+fi
