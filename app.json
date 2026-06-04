@@ -2,7 +2,7 @@
   "expo": {
     "name": "Ghost Poster",
     "slug": "ghost-poster",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "scheme": "ghost-poster",
     "platforms": [
       "android"
@@ -18,7 +18,7 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.RECORD_AUDIO"
       ],
-      "versionCode": 8
+      "versionCode": 9
     },
     "plugins": [
       "expo-secure-store",
