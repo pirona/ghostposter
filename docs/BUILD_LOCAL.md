@@ -23,7 +23,8 @@ export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-
 
 Fichier : `android/app/keystore/release.keystore` (gitignore — ne jamais commiter)  
 Alias : `af2ec445f739391a5c284c6c153b8018`  
-Source : téléchargée depuis EAS (`npx eas credentials` → Download existing keystore)
+Source : keystore EAS téléchargée lors de la migration (2026-06-04) et stockée localement.
+Sur GitHub Actions, elle est injectée via le secret `RELEASE_KEYSTORE_BASE64`.
 
 > Garde une copie du fichier `.jks` et des mots de passe dans un gestionnaire de mots de passe.
 > Perdre la keystore = impossible de mettre à jour l'app sur les devices existants.
@@ -91,6 +92,7 @@ yes | sdkmanager --licenses
 sdkmanager "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" "cmake;3.22.1" "platform-tools"
 
 # 5. Keystore
-# Télécharger depuis EAS : npx eas credentials → Android → Download existing keystore
+# Récupérer le fichier release.keystore auprès du mainteneur
+# (ou via : echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > release.keystore)
 # Placer dans : android/app/keystore/release.keystore  (après expo prebuild)
 ```

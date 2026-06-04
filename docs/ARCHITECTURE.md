@@ -12,7 +12,7 @@ Ce que l'application ne fait pas (hors scope) : gestion des membres Ghost, confi
 
 | Technologie | Rôle | Raison du choix |
 |---|---|---|
-| Expo SDK 52 (managed workflow) | Runtime et toolchain | Compatible EAS Build, simplifie la gestion des dépendances natives |
+| Expo SDK 52 (managed workflow) | Runtime et toolchain | Simplifie la gestion des dépendances natives, prebuild génère le projet Android sans Android Studio |
 | Expo Router v4 | Navigation par fichiers | Cohérent avec la convention Expo SDK 52, routing déclaratif |
 | React Native Paper | Composants UI Material Design 3 | Composants riches, accessible, thémable |
 | Zustand v5 | State management | API minimaliste, pas de boilerplate Redux, `getState()` accessible hors React |
@@ -34,14 +34,14 @@ ghost-poster/
 │   ├── _layout.tsx               # Root layout : providers + chargement initial
 │   ├── index.tsx                 # Redirect conditionnel (Settings / Posts)
 │   ├── settings.tsx              # Gestionnaire d'instances Ghost
-│   └── (tabs)/
-│       ├── _layout.tsx           # Tab navigator (Compose, Posts)
+│   └── (drawer)/
+│       ├── _layout.tsx           # Drawer navigator avec switcher d'instances
 │       ├── compose.tsx           # Éditeur Markdown complet
 │       └── posts.tsx             # Liste paginée des posts
 ├── src/
 │   ├── api/
 │   │   ├── ghostTypes.ts         # Types et classes d'erreurs Ghost Admin API
-│   │   ├── ghostJwt.ts           # Génération JWT HS256 avec jose
+│   │   ├── ghostJwt.ts           # Génération JWT HS256 avec @noble/hashes
 │   │   └── ghostClient.ts        # Client Axios + fonctions API
 │   ├── components/
 │   │   ├── StatusBadge.tsx       # Badge statut (draft/published/scheduled)
@@ -49,20 +49,28 @@ ghost-poster/
 │   │   ├── TagChipList.tsx       # Gestion des tags (chips + saisie)
 │   │   ├── MarkdownPreview.tsx   # Aperçu HTML dans WebView sandboxée
 │   │   ├── ImagePickerButton.tsx # Bouton upload image galerie
+│   │   ├── FeatureImagePicker.tsx# Sélection et aperçu de l'image à la une
 │   │   └── InstanceListItem.tsx  # Carte instance avec swipe-to-delete
 │   ├── hooks/
 │   │   ├── useInstances.ts       # Validation formulaire + test connexion
-│   │   ├── useImageUpload.ts     # Permission + sélection + upload Ghost
+│   │   ├── useImageUpload.ts     # Permission + sélection + conversion + upload
+│   │   ├── useFeatureImageUpload.ts # Upload image à la une (resize JPEG)
 │   │   └── usePostEditor.ts      # Logique éditeur : dirty, validation, save
 │   ├── store/
 │   │   ├── instanceStore.ts      # Zustand : instances Ghost, instance active
 │   │   └── postStore.ts          # Zustand : posts, édition en cours
+│   ├── theme.ts                  # Thèmes light/dark React Native Paper
 │   └── utils/
 │       ├── secureStorage.ts      # Wrapper typé expo-secure-store
 │       └── contentConverter.ts   # Conversion bidirectionnelle HTML ↔ Markdown
-├── docs/                         # Documentation (ce dossier)
+├── assets/                       # Icônes app (icon.png, adaptive-icon.png)
+├── docs/                         # Documentation
+├── scripts/
+│   ├── configure-android.py      # Patch build.gradle après expo prebuild
+│   └── release.sh                # Bump version + tag + push → déclenche CI
+├── .github/workflows/
+│   └── release.yml               # Build APK + GitHub Release sur tag v*
 ├── app.json                      # Configuration Expo
-├── eas.json                      # Profils EAS Build
 ├── tsconfig.json                 # TypeScript strict
 └── package.json
 ```

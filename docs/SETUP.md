@@ -7,10 +7,9 @@ Avant de commencer, assurez-vous d'avoir les outils suivants installés :
 - **Node.js** 20 LTS ou supérieur (`node --version`)
 - **npm** 10 ou supérieur (livré avec Node.js)
 - **Expo CLI** : `npm install -g expo-cli` (ou utiliser `npx expo` sans installation globale)
-- **EAS CLI** pour les builds cloud : `npm install -g eas-cli`
 - **Android Studio** avec un émulateur Android API 34+ configuré, ou un appareil physique Android avec les options développeur et le débogage USB activés
 
-Pour les builds locaux (`expo run:android`), Android Studio avec le SDK Android et les build tools est obligatoire.
+Pour les builds locaux (`expo run:android`), Android Studio avec le SDK Android et les build tools est obligatoire. Pour builder un APK de release, voir [`BUILD_LOCAL.md`](BUILD_LOCAL.md).
 
 ## Installation
 
@@ -60,15 +59,9 @@ Activez le débogage USB sur l'appareil, connectez-le, puis :
 npx expo run:android --device
 ```
 
-### Build APK via EAS (profil preview)
+### Build APK de release
 
-Pour générer un APK distribuable sans Android Studio :
-
-```bash
-eas build --platform android --profile preview
-```
-
-Le fichier APK est disponible dans votre tableau de bord EAS Build une fois le build terminé.
+Pour générer un APK signé prêt à distribuer, voir [`BUILD_LOCAL.md`](BUILD_LOCAL.md) (build local) et [`RELEASE.md`](RELEASE.md) (release automatisée via GitHub Actions).
 
 ## Configuration au premier lancement
 

@@ -35,11 +35,7 @@ npx expo run:android
 
 Requirements: Node.js 20+, Android Studio or a physical device in developer mode.
 
-To build a test APK:
-
-```bash
-eas build --platform android --profile preview
-```
+To build a release APK locally or trigger a GitHub Actions release, see [`docs/BUILD_LOCAL.md`](docs/BUILD_LOCAL.md) and [`docs/RELEASE.md`](docs/RELEASE.md).
 
 ## Ghost configuration
 
@@ -83,6 +79,8 @@ The tool amplifies. It doesn't invent what you don't already know how to think.
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — architecture, data flow, application layers
 - [`docs/SETUP.md`](docs/SETUP.md) — full installation and Ghost configuration guide
+- [`docs/BUILD_LOCAL.md`](docs/BUILD_LOCAL.md) — local build environment and procedure
+- [`docs/RELEASE.md`](docs/RELEASE.md) — step-by-step release process (versioning + GitHub Actions)
 - [`docs/GHOST_API.md`](docs/GHOST_API.md) — Ghost API reference, error handling
 - [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — guide to extending or modifying the app
 - [`docs/SECURITY.md`](docs/SECURITY.md) — security architecture: credential storage, JWT, network constraints
