@@ -37,11 +37,7 @@
     "extra": {
       "router": {
         "origin": false
-      },
-      "eas": {
-        "projectId": "3199cba5-5119-4fd1-91d4-01779c6cde12"
       }
-    },
-    "owner": "billisdead"
+    }
   }
 }
