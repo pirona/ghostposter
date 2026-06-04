@@ -2,18 +2,14 @@ import { MD3LightTheme, MD3DarkTheme, configureFonts } from 'react-native-paper'
 
 const fonts = configureFonts({ config: { fontFamily: 'Barlow_700Bold' } });
 
-// Amber warm — clearly readable on both dark and light backgrounds
-const AMBER_DARK  = '#F5A623';
-const AMBER_LIGHT = '#C47A0F';
-
 export const lightTheme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: AMBER_LIGHT,
-    secondary: '#546E7A',
-    primaryContainer: '#FFF3DC',
-    onPrimaryContainer: '#6B3E00',
+    primary: '#1A1A1A',
+    secondary: '#616161',
+    primaryContainer: '#EBEBEB',
+    onPrimaryContainer: '#1A1A1A',
   },
   fonts,
 };
@@ -22,10 +18,10 @@ export const darkTheme = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
-    primary: AMBER_DARK,
-    secondary: '#90A4AE',
-    primaryContainer: '#5C3A00',
-    onPrimaryContainer: '#FFD18A',
+    primary: '#FFFFFF',
+    secondary: '#9E9E9E',
+    primaryContainer: '#2A2A2A',
+    onPrimaryContainer: '#E0E0E0',
     background: '#15171A',
     surface: '#1C1F24',
     surfaceVariant: '#252A31',
