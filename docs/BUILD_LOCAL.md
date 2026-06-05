@@ -1,8 +1,8 @@
-# Build local Android — Ghost Poster
+# Local Android build — Ghost Poster
 
-## Environnement installé (machine sysadmin, WSL2 Debian 13)
+## Installed environment (sysadmin machine, WSL2 Debian 13)
 
-| Outil | Version | Chemin |
+| Tool | Version | Path |
 |---|---|---|
 | JDK | OpenJDK 21.0.11 | `/usr/lib/jvm/java-21-openjdk-amd64` |
 | Android SDK | — | `~/Android/Sdk` |
@@ -12,62 +12,62 @@
 | CMake | 3.22.1 | `~/Android/Sdk/cmake/3.22.1` |
 | Node.js | 22.x | — |
 
-Variables ajoutées dans `~/.bashrc` :
+Variables added to `~/.bashrc`:
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 export ANDROID_HOME=$HOME/Android/Sdk
 export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0
 ```
 
-## Keystore de production
+## Production keystore
 
-Fichier : `android/app/keystore/release.keystore` (gitignore — ne jamais commiter)  
-Alias : `af2ec445f739391a5c284c6c153b8018`  
-Source : keystore EAS téléchargée lors de la migration (2026-06-04) et stockée localement.
-Sur GitHub Actions, elle est injectée via le secret `RELEASE_KEYSTORE_BASE64`.
+File: `android/app/keystore/release.keystore` (gitignored — never commit)  
+Alias: `af2ec445f739391a5c284c6c153b8018`  
+Source: EAS keystore downloaded during the migration (2026-06-04) and stored locally.
+On GitHub Actions, it is injected via the `RELEASE_KEYSTORE_BASE64` secret.
 
-> Garde une copie du fichier `.jks` et des mots de passe dans un gestionnaire de mots de passe.
-> Perdre la keystore = impossible de mettre à jour l'app sur les devices existants.
+> Keep a copy of the `.jks` file and passwords in a password manager.
+> Losing the keystore = unable to update the app on existing devices.
 
-## Procédure de build
+## Build procedure
 
 ```bash
-# 1. Regénérer le dossier android/ depuis l'app.json
+# 1. Regenerate the android/ folder from app.json
 npx expo prebuild --platform android --clean
 
-# 2. Configurer la signature et le nommage APK
+# 2. Configure signing and APK naming
 python3 scripts/configure-android.py
 
-# 3. Builder
+# 3. Build
 cd android && ./gradlew assembleRelease
 ```
 
-APK produit : `android/app/build/outputs/apk/release/ghost-poster-<version>.apk`
+Output APK: `android/app/build/outputs/apk/release/ghost-poster-<version>.apk`
 
-Pour installer sur un device connecté en USB :
+To install on a USB-connected device:
 ```bash
 adb install android/app/build/outputs/apk/release/ghost-poster-*.apk
 ```
 
-## Procédure de release
+## Release procedure
 
 ```bash
-# Bump patch (1.0.0 → 1.0.1), minor ou major
+# Bump patch (1.0.0 → 1.0.1), minor, or major
 ./scripts/release.sh patch
 
-# Ou version explicite
+# Or explicit version
 ./scripts/release.sh 1.1.0
 ```
 
-Le script :
-1. Vérifie que tu es sur `main` et que le working tree est propre
-2. Met à jour `version` et `android.versionCode` dans `app.json`
-3. Commite, crée le tag `vX.Y.Z`, pousse sur `main` + le tag
-4. Le push du tag déclenche GitHub Actions → build APK → GitHub Release
+The script:
+1. Verifies you are on `main` with a clean working tree
+2. Updates `version` and `android.versionCode` in `app.json`
+3. Commits, creates the `vX.Y.Z` tag, pushes `main` + the tag
+4. The tag push triggers GitHub Actions → build APK → GitHub Release
 
-## Reconstruire l'environnement depuis zéro
+## Rebuilding the environment from scratch
 
-Si tu changes de machine, voici ce qu'il faut réinstaller :
+If you change machines, here is what needs to be reinstalled:
 
 ```bash
 # 1. JDK 21
@@ -82,17 +82,17 @@ mv cmdline-tools latest
 chmod +x latest/bin/*
 rm commandlinetools-linux-11076708_latest.zip
 
-# 3. Variables d'environnement (~/.bashrc)
+# 3. Environment variables (~/.bashrc)
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 export ANDROID_HOME=$HOME/Android/Sdk
 export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0
 
-# 4. SDK components + licences
+# 4. SDK components + licenses
 yes | sdkmanager --licenses
 sdkmanager "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" "cmake;3.22.1" "platform-tools"
 
 # 5. Keystore
-# Récupérer le fichier release.keystore auprès du mainteneur
-# (ou via : echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > release.keystore)
-# Placer dans : android/app/keystore/release.keystore  (après expo prebuild)
+# Retrieve the release.keystore file from the maintainer
+# (or via: echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > release.keystore)
+# Place it at: android/app/keystore/release.keystore  (after expo prebuild)
 ```

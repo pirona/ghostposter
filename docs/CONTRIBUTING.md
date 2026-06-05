@@ -1,17 +1,17 @@
-# ghost-poster — Guide de contribution
+# ghost-poster — Contribution guide
 
-## Ajouter un écran
+## Adding a screen
 
-Les écrans se créent dans le dossier `app/` en suivant les conventions d'Expo Router.
+Screens are created in the `app/` folder following Expo Router conventions.
 
-**Convention de nommage :**
-- Un fichier = un écran. Le nom du fichier détermine la route.
-- Les groupes (tabs, modals) utilisent la notation `(groupe)/` — les parenthèses sont exclues de l'URL.
-- Les layouts s'appellent `_layout.tsx`.
+**Naming convention:**
+- One file = one screen. The filename determines the route.
+- Groups (tabs, modals) use the `(group)/` notation — parentheses are excluded from the URL.
+- Layouts are named `_layout.tsx`.
 
-**Exemple : ajouter un écran de détail de post**
+**Example: adding a post detail screen**
 
-Créer `app/post/[id].tsx`. Expo Router génère automatiquement la route `/post/:id`. Lire le paramètre avec `useLocalSearchParams()`.
+Create `app/post/[id].tsx`. Expo Router automatically generates the route `/post/:id`. Read the parameter with `useLocalSearchParams()`.
 
 ```typescript
 // app/post/[id].tsx
@@ -23,52 +23,52 @@ export default function PostDetailScreen() {
 }
 ```
 
-**Règles :**
-- Aucun appel à `ghostClient` depuis un écran — passer par le store ou un hook.
-- Aucune logique métier dans les layouts `_layout.tsx`.
-- Les Alerts natives (confirmation irréversible) s'écrivent dans les hooks ou les callbacks de l'écran, jamais dans les stores.
+**Rules:**
+- No calls to `ghostClient` from a screen — go through the store or a hook.
+- No business logic in `_layout.tsx` layouts.
+- Native Alerts (irreversible confirmation) belong in hooks or screen callbacks, never in stores.
 
-## Ajouter une action au store
+## Adding an action to the store
 
-Toutes les actions suivent le même pattern dans les stores Zustand.
+All actions follow the same pattern in Zustand stores.
 
-**Pattern de base :**
+**Basic pattern:**
 
 ```typescript
-// Dans postStore.ts ou instanceStore.ts
-async maNewAction(param: string): Promise<void> {
+// In postStore.ts or instanceStore.ts
+async myNewAction(param: string): Promise<void> {
   set({ isLoading: true, error: null });
   try {
     const result = await someApiFunction(param);
-    set({ maData: result, isLoading: false });
+    set({ myData: result, isLoading: false });
   } catch (error) {
-    console.error('Erreur maNewAction:', error instanceof Error ? error.message : error);
+    console.error('myNewAction error:', error instanceof Error ? error.message : error);
     set({
       isLoading: false,
-      error: error instanceof Error ? error.message : 'Erreur inattendue.',
+      error: error instanceof Error ? error.message : 'Unexpected error.',
     });
-    throw error;  // Re-lève si l'appelant doit réagir
+    throw error;  // Re-throw if the caller needs to react
   }
 }
 ```
 
-**Règles :**
-- Toujours passer `isLoading: true` en début d'action async.
-- Toujours logger les erreurs avec `console.error` — sans données sensibles (jamais de clé API).
-- Toujours stocker le message d'erreur dans `state.error` pour que les composants puissent l'afficher.
-- Ne jamais muter `state` directement — produire un nouvel objet dans `set()`.
-- Les actions de `instanceStore` qui modifient des données persistées doivent appeler `persistState()` ou les setters SecureStore.
+**Rules:**
+- Always set `isLoading: true` at the start of an async action.
+- Always log errors with `console.error` — without sensitive data (never an API key).
+- Always store the error message in `state.error` so components can display it.
+- Never mutate `state` directly — produce a new object in `set()`.
+- Actions in `instanceStore` that modify persisted data must call `persistState()` or the SecureStore setters.
 
-## Ajouter un endpoint API
+## Adding an API endpoint
 
-Tous les endpoints se définissent dans `src/api/ghostClient.ts`.
+All endpoints are defined in `src/api/ghostClient.ts`.
 
-**Étapes :**
+**Steps:**
 
-1. Ajouter le type de réponse dans `src/api/ghostTypes.ts` si nécessaire.
+1. Add the response type in `src/api/ghostTypes.ts` if needed.
 
 ```typescript
-// Dans ghostTypes.ts
+// In ghostTypes.ts
 export interface GhostNewResourceResponse {
   resource: {
     id: string;
@@ -77,15 +77,15 @@ export interface GhostNewResourceResponse {
 }
 ```
 
-2. Ajouter la fonction dans `ghostClient.ts` :
+2. Add the function in `ghostClient.ts`:
 
 ```typescript
-// Dans ghostClient.ts
+// In ghostClient.ts
 /**
- * Description de ce que fait l'endpoint.
- * @param id - Description du paramètre
- * @returns Description de la valeur retournée
- * @throws GhostApiError si l'API retourne une erreur
+ * Description of what the endpoint does.
+ * @param id - Parameter description
+ * @returns Description of the returned value
+ * @throws GhostApiError if the API returns an error
  */
 export async function getNewResource(id: string): Promise<GhostNewResourceType> {
   const response = await client.get<GhostNewResourceResponse>(
@@ -95,34 +95,34 @@ export async function getNewResource(id: string): Promise<GhostNewResourceType> 
 }
 ```
 
-3. Appeler la fonction depuis le store (jamais directement depuis un écran).
+3. Call the function from the store (never directly from a screen).
 
-**Règles :**
-- Chaque fonction exportée doit avoir un JSDoc complet (description, `@param`, `@returns`, `@throws`).
-- Les erreurs HTTP sont déjà normalisées par l'intercepteur de réponse — ne pas gérer 401/409/422/429 dans les fonctions individuelles.
-- Pour un endpoint qui bypass les intercepteurs (comme `testGhostConnection`), gérer explicitement les erreurs dans la fonction.
+**Rules:**
+- Each exported function must have a complete JSDoc (description, `@param`, `@returns`, `@throws`).
+- HTTP errors are already normalized by the response interceptor — do not handle 401/409/422/429 in individual functions.
+- For an endpoint that bypasses interceptors (like `testGhostConnection`), handle errors explicitly in the function.
 
-## Conventions de commit
+## Commit conventions
 
-Les commits suivent le format **Conventional Commits** en anglais :
+Commits follow the **Conventional Commits** format in English:
 
 ```
-type(scope): description concise à l'impératif présent
+type(scope): concise description in imperative present tense
 ```
 
-**Types :**
+**Types:**
 
 | Type | Usage |
 |---|---|
-| `feat` | Nouvelle fonctionnalité |
-| `fix` | Correction de bug |
-| `refactor` | Refactoring sans changement de comportement |
-| `docs` | Documentation uniquement |
-| `chore` | Maintenance (dépendances, config, scripts) |
-| `style` | Formatage, styles CSS/StyleSheet |
-| `test` | Ajout ou modification de tests |
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `refactor` | Refactoring without behavior change |
+| `docs` | Documentation only |
+| `chore` | Maintenance (dependencies, config, scripts) |
+| `style` | Formatting, CSS/StyleSheet styles |
+| `test` | Adding or modifying tests |
 
-**Exemples :**
+**Examples:**
 
 ```
 feat(compose): add keyboard-aware scroll on editor screen
@@ -131,8 +131,8 @@ docs(GHOST_API): add rate limiting section
 chore(deps): upgrade jose to 5.9.6
 ```
 
-**Règles :**
-- Pas de commit direct sur `main` — toujours via une PR/MR sur Gitea.
-- La description ne dépasse pas 72 caractères.
-- Le corps du commit (optionnel, après une ligne vide) peut contenir le contexte et les raisons du changement.
-- Aucun secret ou fragment de clé API dans les messages de commit.
+**Rules:**
+- No direct commits to `main` — always via a PR/MR on Gitea.
+- Description does not exceed 72 characters.
+- The commit body (optional, after a blank line) can contain context and rationale.
+- No secrets or API key fragments in commit messages.

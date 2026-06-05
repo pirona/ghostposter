@@ -1,87 +1,87 @@
 # ghost-poster — Architecture
 
-## Vue d'ensemble
+## Overview
 
-ghost-poster est une application Android permettant de créer, éditer et publier des articles sur une instance Ghost auto-hébergée via l'Admin API. Elle couvre l'intégralité du cycle de vie d'un post : rédaction en Markdown, sauvegarde en brouillon, publication, dépublication et suppression. Elle ne remplace pas le panel d'administration Ghost — elle se concentre exclusivement sur la gestion du contenu éditorial.
+ghost-poster is an Android app for creating, editing, and publishing posts to a self-hosted Ghost instance via the Admin API. It covers the full post lifecycle: writing in Markdown, saving as draft, publishing, unpublishing, and deleting. It does not replace the Ghost admin panel — it focuses exclusively on editorial content management.
 
-L'application supporte plusieurs instances Ghost nommées, avec une instance active à la fois. La sélection de l'instance active réinitialise la liste des posts. Les credentials ne quittent jamais le stockage chiffré de l'appareil.
+The app supports multiple named Ghost instances, with one active at a time. Switching the active instance resets the post list. Credentials never leave the device's encrypted storage.
 
-Ce que l'application ne fait pas (hors scope) : gestion des membres Ghost, configuration du thème, gestion des pages statiques, notifications push, édition enrichie (toolbar gras/italique), insertion d'image à la position du curseur.
+Out of scope: Ghost member management, theme configuration, static page management, push notifications, rich editing toolbar (bold/italic), image insertion at cursor position.
 
-## Stack technique
+## Tech stack
 
-| Technologie | Rôle | Raison du choix |
+| Technology | Role | Reason |
 |---|---|---|
-| Expo SDK 52 (managed workflow) | Runtime et toolchain | Simplifie la gestion des dépendances natives, prebuild génère le projet Android sans Android Studio |
-| Expo Router v4 | Navigation par fichiers | Cohérent avec la convention Expo SDK 52, routing déclaratif |
-| React Native Paper | Composants UI Material Design 3 | Composants riches, accessible, thémable |
-| Zustand v5 | State management | API minimaliste, pas de boilerplate Redux, `getState()` accessible hors React |
-| Axios | Client HTTP | Intercepteurs de requêtes pour l'injection JWT, gestion centralisée des erreurs |
-| expo-secure-store | Stockage des secrets | Chiffrement Android Keystore — jamais AsyncStorage pour les credentials |
-| jose v5 | Signature JWT | Compatible Hermes (pas de dépendance Node.js crypto), ES Modules natifs |
-| turndown | HTML → Markdown | Conversion fidèle pour charger les posts Ghost dans l'éditeur |
-| marked | Markdown → HTML | Retourner le contenu édité vers l'API Ghost |
-| react-native-webview | Aperçu HTML sandboxé | Rendu isolé, JS désactivé, aucun lien externe accessible |
-| expo-image-picker | Sélection d'image galerie | Permission déclarée dans app.json, API unifiée Android/iOS |
-| expo-crypto | Génération UUID | randomUUID() natif compatible Hermes |
-| TypeScript strict | Typage statique | Détection des erreurs à la compilation, pas d'`any` |
+| Expo SDK 52 (managed workflow) | Runtime and toolchain | Simplifies native dependency management; prebuild generates the Android project without Android Studio |
+| Expo Router v4 | File-based navigation | Consistent with Expo SDK 52 conventions; declarative routing |
+| React Native Paper | Material Design 3 UI components | Rich, accessible, themeable components |
+| Zustand v5 | State management | Minimal API, no Redux boilerplate, `getState()` accessible outside React |
+| Axios | HTTP client | Request interceptors for JWT injection, centralized error handling |
+| expo-secure-store | Secret storage | Android Keystore encryption — never AsyncStorage for credentials |
+| jose v5 | JWT signing | Hermes-compatible (no Node.js crypto dependency), native ES Modules |
+| turndown | HTML → Markdown | Faithful conversion for loading Ghost posts into the editor |
+| marked | Markdown → HTML | Converts edited content back to the Ghost API format |
+| react-native-webview | Sandboxed HTML preview | Isolated rendering, JS disabled, no external links reachable |
+| expo-image-picker | Gallery image selection | Permission declared in app.json, unified Android/iOS API |
+| expo-crypto | UUID generation | Native randomUUID() compatible with Hermes |
+| TypeScript strict | Static typing | Compile-time error detection, no `any` |
 
-## Structure du projet
+## Project structure
 
 ```
 ghost-poster/
-├── app/                          # Écrans et layouts (Expo Router)
-│   ├── _layout.tsx               # Root layout : providers + chargement initial
-│   ├── index.tsx                 # Redirect conditionnel (Settings / Posts)
-│   ├── settings.tsx              # Gestionnaire d'instances Ghost
+├── app/                          # Screens and layouts (Expo Router)
+│   ├── _layout.tsx               # Root layout: providers + initial load
+│   ├── index.tsx                 # Conditional redirect (Settings / Posts)
+│   ├── settings.tsx              # Ghost instance manager
 │   └── (drawer)/
-│       ├── _layout.tsx           # Drawer navigator avec switcher d'instances
-│       ├── compose.tsx           # Éditeur Markdown complet
-│       └── posts.tsx             # Liste paginée des posts
+│       ├── _layout.tsx           # Drawer navigator with instance switcher
+│       ├── compose.tsx           # Full Markdown editor
+│       └── posts.tsx             # Paginated post list
 ├── src/
 │   ├── api/
-│   │   ├── ghostTypes.ts         # Types et classes d'erreurs Ghost Admin API
-│   │   ├── ghostJwt.ts           # Génération JWT HS256 avec @noble/hashes
-│   │   └── ghostClient.ts        # Client Axios + fonctions API
+│   │   ├── ghostTypes.ts         # Ghost Admin API types and error classes
+│   │   ├── ghostJwt.ts           # JWT HS256 generation with @noble/hashes
+│   │   └── ghostClient.ts        # Axios client + API functions
 │   ├── components/
-│   │   ├── StatusBadge.tsx       # Badge statut (draft/published/scheduled)
-│   │   ├── PostListItem.tsx      # Carte post avec swipe-to-delete
-│   │   ├── TagChipList.tsx       # Gestion des tags (chips + saisie)
-│   │   ├── MarkdownPreview.tsx   # Aperçu HTML dans WebView sandboxée
-│   │   ├── ImagePickerButton.tsx # Bouton upload image galerie
-│   │   ├── FeatureImagePicker.tsx# Sélection et aperçu de l'image à la une
-│   │   └── InstanceListItem.tsx  # Carte instance avec swipe-to-delete
+│   │   ├── StatusBadge.tsx       # Status badge (draft/published/scheduled)
+│   │   ├── PostListItem.tsx      # Post card with swipe-to-delete
+│   │   ├── TagChipList.tsx       # Tag management (chips + input)
+│   │   ├── MarkdownPreview.tsx   # HTML preview in sandboxed WebView
+│   │   ├── ImagePickerButton.tsx # Gallery image upload button
+│   │   ├── FeatureImagePicker.tsx# Feature image selection and preview
+│   │   └── InstanceListItem.tsx  # Instance card with swipe-to-delete
 │   ├── hooks/
-│   │   ├── useInstances.ts       # Validation formulaire + test connexion
-│   │   ├── useImageUpload.ts     # Permission + sélection + conversion + upload
-│   │   ├── useFeatureImageUpload.ts # Upload image à la une (resize JPEG)
-│   │   └── usePostEditor.ts      # Logique éditeur : dirty, validation, save
+│   │   ├── useInstances.ts       # Form validation + connection test
+│   │   ├── useImageUpload.ts     # Permission + selection + conversion + upload
+│   │   ├── useFeatureImageUpload.ts # Feature image upload (JPEG resize)
+│   │   └── usePostEditor.ts      # Editor logic: dirty state, validation, save
 │   ├── store/
-│   │   ├── instanceStore.ts      # Zustand : instances Ghost, instance active
-│   │   └── postStore.ts          # Zustand : posts, édition en cours
-│   ├── theme.ts                  # Thèmes light/dark React Native Paper
+│   │   ├── instanceStore.ts      # Zustand: Ghost instances, active instance
+│   │   └── postStore.ts          # Zustand: posts, current edit
+│   ├── theme.ts                  # Light/dark React Native Paper themes
 │   └── utils/
-│       ├── secureStorage.ts      # Wrapper typé expo-secure-store
-│       └── contentConverter.ts   # Conversion bidirectionnelle HTML ↔ Markdown
-├── assets/                       # Icônes app (icon.png, adaptive-icon.png)
+│       ├── secureStorage.ts      # Typed expo-secure-store wrapper
+│       └── contentConverter.ts   # Bidirectional HTML ↔ Markdown conversion
+├── assets/                       # App icons (icon.png, adaptive-icon.png)
 ├── docs/                         # Documentation
 ├── scripts/
-│   ├── configure-android.py      # Patch build.gradle après expo prebuild
-│   └── release.sh                # Bump version + tag + push → déclenche CI
+│   ├── configure-android.py      # Patch build.gradle after expo prebuild
+│   └── release.sh                # Bump version + tag + push → triggers CI
 ├── .github/workflows/
-│   └── release.yml               # Build APK + GitHub Release sur tag v*
-├── app.json                      # Configuration Expo
+│   └── release.yml               # Build APK + GitHub Release on v* tag
+├── app.json                      # Expo configuration
 ├── tsconfig.json                 # TypeScript strict
 └── package.json
 ```
 
-## Flux de données
+## Data flow
 
-Le flux respecte une séparation stricte des couches — un écran ne touche jamais le client HTTP directement.
+The flow enforces strict layer separation — a screen never touches the HTTP client directly.
 
 ```
 ┌─────────────────────────────────────────────┐
-│                   Écrans                    │
+│                   Screens                   │
 │   app/(tabs)/compose.tsx                    │
 │   app/(tabs)/posts.tsx                      │
 │   app/settings.tsx                          │
@@ -92,66 +92,66 @@ Le flux respecte une séparation stricte des couches — un écran ne touche jam
 │               Hooks (src/hooks/)            │
 │   usePostEditor  useInstances  useImageUpload│
 └───────────────────┬─────────────────────────┘
-                    │ appels store + API
+                    │ store + API calls
                     ▼
 ┌─────────────────────────────────────────────┐
-│             Stores Zustand (src/store/)      │
+│             Zustand stores (src/store/)      │
 │   postStore          instanceStore          │
 └───────────────────┬─────────────────────────┘
-                    │ appels ghostClient
+                    │ ghostClient calls
                     ▼
 ┌─────────────────────────────────────────────┐
-│           Client API (src/api/)             │
+│           API client (src/api/)             │
 │   ghostClient.ts → ghostJwt.ts             │
 └───────────────────┬─────────────────────────┘
-                    │ HTTPS uniquement
+                    │ HTTPS only
                     ▼
 ┌─────────────────────────────────────────────┐
-│           Instance Ghost Admin API          │
-│   https://ghost.example.fr/ghost/api/admin/ │
+│           Ghost Admin API instance          │
+│   https://ghost.example.com/ghost/api/admin/│
 └─────────────────────────────────────────────┘
 ```
 
-## Couches applicatives
+## Application layers
 
-### Écrans (`app/`)
+### Screens (`app/`)
 
-Les écrans orchestrent l'affichage et délèguent toute la logique aux hooks et stores. Ils ne contiennent ni appels API ni logique métier. Leur responsabilité se limite à : rendre les composants, consommer les stores via des sélecteurs, appeler les actions via les hooks.
+Screens orchestrate rendering and delegate all logic to hooks and stores. They contain no API calls or business logic. Their responsibility is limited to: rendering components, consuming stores via selectors, and calling actions via hooks.
 
 ### Hooks (`src/hooks/`)
 
-Les hooks encapsulent la logique UI que les stores ne doivent pas connaître : validation de formulaire, confirmations Alert, test de connexion avant enregistrement, demandes de permission. Ils servent de couche d'adaptation entre les écrans et les stores.
+Hooks encapsulate UI logic that stores should not know about: form validation, Alert confirmations, connection testing before saving, permission requests. They serve as the adaptation layer between screens and stores.
 
-### Stores Zustand (`src/store/`)
+### Zustand stores (`src/store/`)
 
-Les stores gèrent l'état global de l'application et appellent directement le client API. `postStore` contient la liste des posts et l'état de l'éditeur. `instanceStore` gère les instances Ghost et persiste dans SecureStore. Lorsque l'instance active change, `instanceStore` réinitialise `postStore` via un import dynamique pour éviter la dépendance circulaire au niveau du module.
+Stores manage global application state and call the API client directly. `postStore` holds the post list and editor state. `instanceStore` manages Ghost instances and persists to SecureStore. When the active instance changes, `instanceStore` resets `postStore` via a dynamic import to avoid a module-level circular dependency.
 
-### Client API (`src/api/`)
+### API client (`src/api/`)
 
-`ghostClient.ts` contient uniquement la logique HTTP : construction des requêtes, injection du JWT via l'intercepteur Axios, normalisation des erreurs HTTP en classes typées. Il ne contient aucune logique métier. `ghostJwt.ts` signe le JWT à chaque requête — le token n'est jamais mis en cache.
+`ghostClient.ts` contains only HTTP logic: request construction, JWT injection via the Axios interceptor, normalization of HTTP errors into typed classes. It contains no business logic. `ghostJwt.ts` signs the JWT on every request — the token is never cached.
 
-### Utilitaires (`src/utils/`)
+### Utilities (`src/utils/`)
 
-Fonctions pures sans état. `secureStorage.ts` est le seul point d'entrée pour les opérations sur SecureStore. `contentConverter.ts` gère la conversion HTML↔Markdown.
+Stateless pure functions. `secureStorage.ts` is the single entry point for SecureStore operations. `contentConverter.ts` handles HTML↔Markdown conversion.
 
-## Sécurité
+## Security
 
-**Stockage des secrets.** Les instances Ghost (incluant les clés API) sont sérialisées en JSON et stockées dans `expo-secure-store` sous la clé `GHOST_INSTANCES`. Le stockage utilise Android Keystore via EncryptedSharedPreferences. Aucune clé API ne transite dans un log ou dans l'état Zustand non protégé.
+**Secret storage.** Ghost instances (including API keys) are serialized as JSON and stored in `expo-secure-store` under the key `GHOST_INSTANCES`. Storage uses Android Keystore via EncryptedSharedPreferences. No API key ever appears in a log or in unprotected Zustand state.
 
-**Génération JWT.** Le JWT Ghost est généré à chaque requête API avec une durée de vie de 5 minutes maximum. Il n'est jamais mis en cache entre les appels. La génération utilise `jose` v5 (HS256), compatible Hermes sans dépendance Node.js crypto. Le secret hexadécimal est décodé manuellement en `Uint8Array` pour éviter toute dépendance sur `Buffer`.
+**JWT generation.** The Ghost JWT is generated on every API request with a maximum lifetime of 5 minutes. It is never cached between calls. Generation uses `jose` v5 (HS256), compatible with Hermes without a Node.js crypto dependency. The hex secret is manually decoded to `Uint8Array` to avoid any dependency on `Buffer`.
 
-**Réseau.** Tous les appels réseau sont en HTTPS. L'URL de base de l'instance est validée (doit commencer par `https://`) avant enregistrement. Aucun fallback HTTP.
+**Network.** All network calls are over HTTPS. The instance base URL is validated (must start with `https://`) before saving. No HTTP fallback.
 
-**WebView sandboxée.** L'aperçu Markdown est rendu dans une WebView avec `javaScriptEnabled={false}` et `originWhitelist={[]}` — aucun script exécuté, aucune navigation externe possible.
+**Sandboxed WebView.** The Markdown preview renders in a WebView with `javaScriptEnabled={false}` and `originWhitelist={[]}` — no scripts execute, no external navigation is possible.
 
-**Optimistic lock.** Le champ `updated_at` du post original est systématiquement renvoyé dans les requêtes PUT. Ghost rejette toute mise à jour dont ce champ ne correspond pas à la version serveur, ce qui protège contre les modifications concurrentes.
+**Optimistic lock.** The `updated_at` field of the original post is always sent back in PUT requests. Ghost rejects any update where this field does not match the server version, protecting against concurrent modifications.
 
-## Stratégie d'édition de contenu
+## Content editing strategy
 
-Ghost stocke le contenu dans deux formats selon la version et le type d'éditeur : HTML (`html`) et Lexical (`lexical`). L'application travaille exclusivement avec le HTML.
+Ghost stores content in two formats depending on the version and editor type: HTML (`html`) and Lexical (`lexical`). The app works exclusively with HTML.
 
-**Chargement (Ghost → éditeur) :** Le HTML retourné par l'API est converti en Markdown via `turndown` (options : headings ATX, code blocks fenced). La conversion est fidèle pour le contenu courant (titres, listes, gras, italique, liens, images, code). Les éléments HTML non standard (iframes, widgets) sont supprimés par turndown.
+**Loading (Ghost → editor):** The HTML returned by the API is converted to Markdown via `turndown` (options: ATX headings, fenced code blocks). The conversion is faithful for standard content (headings, lists, bold, italic, links, images, code). Non-standard HTML elements (iframes, widgets) are dropped by turndown.
 
-**Sauvegarde (éditeur → Ghost) :** Le Markdown est converti en HTML via `marked` (GFM activé, retours à la ligne conservés) avant envoi à l'API. Ghost accepte le HTML même pour les posts originellement en Lexical, et le re-stocke dans les deux formats.
+**Saving (editor → Ghost):** Markdown is converted to HTML via `marked` (GFM enabled, line breaks preserved) before being sent to the API. Ghost accepts HTML even for posts originally in Lexical, and re-stores it in both formats.
 
-**Limites connues :** Les posts contenant du contenu Lexical avancé (cards Ghost, galeries) voient leur mise en forme simplifiée après un aller-retour via l'application. Ce comportement est documenté et prévu — l'application cible le contenu éditorial standard, pas les mises en page avancées.
+**Known limitations:** Posts containing advanced Lexical content (Ghost cards, galleries) have their formatting simplified after a round-trip through the app. This behavior is documented and expected — the app targets standard editorial content, not advanced layouts.

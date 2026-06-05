@@ -16,7 +16,7 @@ Write posts in Markdown, preview them, upload images, manage drafts and publishe
 
 ## Getting the app
 
-Download the latest APK from the [Releases page](https://github.com/billisdead/ghost-poster/releases) and install it on your Android device.
+Download the latest APK from the [Releases page](https://github.com/pirona/ghost-poster/releases) and install it on your Android device.
 
 ---
 
@@ -41,7 +41,7 @@ React Native · React Native Paper · Zustand · Axios · `@noble/hashes` · `ex
 ## Development setup
 
 ```bash
-git clone https://github.com/billisdead/ghost-poster.git
+git clone https://github.com/pirona/ghost-poster.git
 cd ghost-poster
 npm install
 npx expo run:android   # requires Android Studio or a connected device

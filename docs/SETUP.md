@@ -1,92 +1,91 @@
-# ghost-poster — Installation et configuration
+# ghost-poster — Installation and configuration
 
-## Prérequis
+## Prerequisites
 
-Avant de commencer, assurez-vous d'avoir les outils suivants installés :
+Before starting, make sure you have the following tools installed:
 
-- **Node.js** 20 LTS ou supérieur (`node --version`)
-- **npm** 10 ou supérieur (livré avec Node.js)
-- **Node.js** 20 LTS ou supérieur — requis pour le toolchain de build (`npx expo run:android`)
-- **Android Studio** avec un émulateur Android API 34+ configuré, ou un appareil physique Android avec les options développeur et le débogage USB activés
+- **Node.js** 20 LTS or higher (`node --version`)
+- **npm** 10 or higher (bundled with Node.js)
+- **Android Studio** with an Android API 34+ emulator configured, or a physical Android device with developer options and USB debugging enabled
 
-Pour les builds de release (APK signé), voir [`BUILD_LOCAL.md`](BUILD_LOCAL.md). Pour l'installation sans développement, téléchargez directement l'APK depuis les [Releases GitHub](https://github.com/billisdead/ghost-poster/releases).
+For release builds (signed APK), see [`BUILD_LOCAL.md`](BUILD_LOCAL.md). For installation without development, download the APK directly from the [GitHub Releases page](https://github.com/pirona/ghost-poster/releases).
 
 ## Installation
 
-Clonez le dépôt et installez les dépendances :
+Clone the repository and install dependencies:
 
 ```bash
-git clone git@homegit.gyozamancave.fr:antoine/ghost-poster.git
+git clone ssh://gitea@homegit.gyozamancave.fr:2222/billisdead/ghost-poster.git
 cd ghost-poster
 npm install
 ```
 
-Aucune configuration d'environnement supplémentaire n'est nécessaire — il n'y a pas de fichier `.env`. Les secrets sont gérés à l'exécution via l'interface de l'application.
+No additional environment configuration is required — there is no `.env` file. Secrets are managed at runtime through the app's interface.
 
-## Configuration de l'instance Ghost
+## Ghost instance configuration
 
-L'application utilise l'**Admin API** de Ghost. Pour générer une clé d'accès :
+The app uses Ghost's **Admin API**. To generate an access key:
 
-1. Connectez-vous à votre panel Ghost Admin (`https://votre-ghost.fr/ghost/#/settings`)
-2. Naviguez vers **Paramètres → Intégrations**
-3. Cliquez sur **+ Ajouter une intégration personnalisée**
-4. Donnez-lui un nom (par exemple : `ghost-poster`)
-5. Après création, copiez la valeur du champ **Clé Admin API**
+1. Log in to your Ghost Admin panel (`https://your-ghost.example.com/ghost/#/settings`)
+2. Navigate to **Settings → Integrations**
+3. Click **+ Add custom integration**
+4. Give it a name (e.g. `ghost-poster`)
+5. After creation, copy the value of the **Admin API key** field
 
-La clé est au format `id:secret` où `id` et `secret` sont des chaînes hexadécimales. Exemple (fictif) :
+The key is in `id:secret` format where both `id` and `secret` are hex strings. Example (fictional):
 
 ```
 6ba7b810:9dad11d1b0004b00b0000c3f7edcfbadba0efbad
 ```
 
-Conservez cette clé — elle ne peut pas être récupérée une fois la fenêtre fermée (il faudra en générer une nouvelle).
+Keep this key safe — it cannot be retrieved once the window is closed (you will need to generate a new one).
 
-## Premier lancement
+## First launch
 
-### Sur émulateur Android
+### On Android emulator
 
 ```bash
 npx expo run:android
 ```
 
-Cette commande compile l'application native et la déploie sur l'émulateur. Le premier build prend plusieurs minutes (Gradle).
+This compiles the native app and deploys it to the emulator. The first build takes several minutes (Gradle).
 
-### Sur appareil physique (USB)
+### On a physical device (USB)
 
-Activez le débogage USB sur l'appareil, connectez-le, puis :
+Enable USB debugging on the device, connect it, then:
 
 ```bash
 npx expo run:android --device
 ```
 
-### Build APK de release
+### Release APK build
 
-Pour générer un APK signé prêt à distribuer, voir [`BUILD_LOCAL.md`](BUILD_LOCAL.md) (build local) et [`RELEASE.md`](RELEASE.md) (release automatisée via GitHub Actions).
+To generate a signed APK ready for distribution, see [`BUILD_LOCAL.md`](BUILD_LOCAL.md) (local build) and [`RELEASE.md`](RELEASE.md) (automated release via GitHub Actions).
 
-## Configuration au premier lancement
+## Initial configuration
 
-Au premier démarrage, l'application redirige automatiquement vers l'écran **Instances Ghost** (Settings). Appuyez sur le bouton **+** et renseignez :
+On first launch, the app automatically redirects to the **Ghost Instances** screen (Settings). Tap the **+** button and fill in:
 
-- **Nom** : un nom lisible pour identifier votre instance (ex : "Billisdead")
-- **URL de base** : l'URL racine de votre Ghost sans slash final (ex : `https://ghost.billisdead.com`)
-- **Clé Admin API** : la clé copiée depuis Ghost Admin (format `id:secret`)
+- **Name**: a readable name to identify your instance (e.g. "My Blog")
+- **Base URL**: the root URL of your Ghost instance without a trailing slash (e.g. `https://ghost.example.com`)
+- **Admin API key**: the key copied from Ghost Admin (format `id:secret`)
 
-L'application teste la connexion avant d'enregistrer. En cas d'échec, vérifiez que l'instance Ghost est accessible depuis le réseau de l'appareil et que la clé est correcte.
+The app tests the connection before saving. If it fails, verify that the Ghost instance is reachable from the device's network and that the key is correct.
 
-## Variables et secrets
+## Variables and secrets
 
-Aucune variable d'environnement n'est utilisée. Tous les secrets sont stockés dans **expo-secure-store** (Android Keystore) sous deux clés :
+No environment variables are used. All secrets are stored in **expo-secure-store** (Android Keystore) under two keys:
 
-| Clé SecureStore | Contenu |
+| SecureStore key | Contents |
 |---|---|
-| `GHOST_INSTANCES` | JSON sérialisé de la liste des instances (nom, URL, clé API) |
-| `GHOST_ACTIVE_ID` | UUID de l'instance actuellement active |
+| `GHOST_INSTANCES` | Serialized JSON of the instance list (name, URL, API key) |
+| `GHOST_ACTIVE_ID` | UUID of the currently active instance |
 
-Pour réinitialiser complètement la configuration (désinstallation ou debug) :
+To fully reset the configuration (uninstall or debug):
 
 ```bash
-# Sur émulateur — efface toutes les données de l'app
+# On emulator — clears all app data
 adb shell pm clear fr.gyozamancave.ghostposter
 ```
 
-Sur appareil physique, désinstallez et réinstallez l'application via les paramètres Android.
+On a physical device, uninstall and reinstall the app via Android settings.
