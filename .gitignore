@@ -17,6 +17,11 @@ node_modules/
 *.pem
 google-services.json
 GoogleService-Info.plist
+.token
+.token*
+*.token
+github_pat
+github_pat*
 
 # OS
 .DS_Store
