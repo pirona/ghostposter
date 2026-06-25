@@ -16,7 +16,7 @@ Write posts in Markdown, preview them, upload images, manage drafts and publishe
 
 ## Getting the app
 
-Download the latest APK from the [Releases page](https://github.com/pirona/ghost-poster/releases) and install it on your Android device.
+Download the latest APK from the [Releases page](https://github.com/pirona/ghostposter/releases) and install it on your Android device.
 
 ---
 
@@ -41,13 +41,13 @@ React Native · React Native Paper · Zustand · Axios · `@noble/hashes` · `ex
 ## Development setup
 
 ```bash
-git clone https://github.com/pirona/ghost-poster.git
+git clone https://github.com/pirona/ghostposter.git
 cd ghost-poster
 npm install
 npx expo run:android   # requires Android Studio or a connected device
 ```
 
-To build a signed release APK or publish a new version, see the [Build Local](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Build-Local) · [↗ GitHub](https://github.com/pirona/ghost-poster/wiki/Build-Local) and [Release](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Release) · [↗ GitHub](https://github.com/pirona/ghost-poster/wiki/Release) wiki pages.
+To build a signed release APK or publish a new version, see the [Build Local](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Build-Local) · [↗ GitHub](https://github.com/pirona/ghostposter/wiki/Build-Local) and [Release](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Release) · [↗ GitHub](https://github.com/pirona/ghostposter/wiki/Release) wiki pages.
 
 ---
 
@@ -67,18 +67,18 @@ The tool amplifies. It doesn't invent what you don't already know how to think.
 
 ## Documentation
 
-Full documentation: [Gitea wiki](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki) · [GitHub wiki](https://github.com/pirona/ghost-poster/wiki)
+Full documentation: [Gitea wiki](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki) · [GitHub wiki](https://github.com/pirona/ghostposter/wiki)
 
 | Page | Gitea | GitHub |
 |------|-------|--------|
-| Architecture | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Architecture) | [↗](https://github.com/pirona/ghost-poster/wiki/Architecture) |
-| Setup | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Setup) | [↗](https://github.com/pirona/ghost-poster/wiki/Setup) |
-| Build Local | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Build-Local) | [↗](https://github.com/pirona/ghost-poster/wiki/Build-Local) |
-| Release | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Release) | [↗](https://github.com/pirona/ghost-poster/wiki/Release) |
-| Ghost API | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Ghost-API) | [↗](https://github.com/pirona/ghost-poster/wiki/Ghost-API) |
-| Contributing | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Contributing) | [↗](https://github.com/pirona/ghost-poster/wiki/Contributing) |
-| Security | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Security) | [↗](https://github.com/pirona/ghost-poster/wiki/Security) |
-| Reverse Proxy | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Reverse-Proxy) | [↗](https://github.com/pirona/ghost-poster/wiki/Reverse-Proxy) |
+| Architecture | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Architecture) | [↗](https://github.com/pirona/ghostposter/wiki/Architecture) |
+| Setup | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Setup) | [↗](https://github.com/pirona/ghostposter/wiki/Setup) |
+| Build Local | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Build-Local) | [↗](https://github.com/pirona/ghostposter/wiki/Build-Local) |
+| Release | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Release) | [↗](https://github.com/pirona/ghostposter/wiki/Release) |
+| Ghost API | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Ghost-API) | [↗](https://github.com/pirona/ghostposter/wiki/Ghost-API) |
+| Contributing | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Contributing) | [↗](https://github.com/pirona/ghostposter/wiki/Contributing) |
+| Security | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Security) | [↗](https://github.com/pirona/ghostposter/wiki/Security) |
+| Reverse Proxy | [↗](https://homegit.gyozamancave.fr/billisdead/ghost-poster/wiki/Reverse-Proxy) | [↗](https://github.com/pirona/ghostposter/wiki/Reverse-Proxy) |
 
 ---
 
