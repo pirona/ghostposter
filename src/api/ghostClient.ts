@@ -153,7 +153,10 @@ export async function getPost(id: string): Promise<GhostPost> {
  * @returns Le post créé avec son identifiant Ghost
  */
 export async function createPost(payload: CreatePostPayload): Promise<GhostPost> {
-  const response = await client.post<{ posts: GhostPost[] }>('/ghost/api/admin/posts/', payload);
+  const response = await client.post<{ posts: GhostPost[] }>(
+    '/ghost/api/admin/posts/?source=html',
+    payload,
+  );
   return response.data.posts[0];
 }
 
@@ -168,7 +171,7 @@ export async function createPost(payload: CreatePostPayload): Promise<GhostPost>
  */
 export async function updatePost(id: string, payload: UpdatePostPayload): Promise<GhostPost> {
   const response = await client.put<{ posts: GhostPost[] }>(
-    `/ghost/api/admin/posts/${id}/`,
+    `/ghost/api/admin/posts/${id}/?source=html`,
     payload,
   );
   return response.data.posts[0];
