@@ -234,6 +234,14 @@ export const usePostStore = create<PostState & PostActions>((set, get) => ({
     const current = get().currentPost;
     if (!current) throw new Error('Aucun post en cours d\'édition');
 
+    // Garde-fou : un post existant ne doit jamais être écrasé par un contenu vide
+    // (cf. bug Android où la sélection de texte peut vider le TextInput contrôlé).
+    if (current.ghostId && current.markdownContent.trim() === '') {
+      const message = 'Le contenu est vide — sauvegarde annulée pour éviter d\'écraser le post existant.';
+      set({ error: message });
+      throw new Error(message);
+    }
+
     set({ isSaving: true, error: null });
 
     const html = markdownToHtml(current.markdownContent);
