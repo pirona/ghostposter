@@ -19,6 +19,7 @@ export interface TagChipListProps {
   tags: string[];
   onTagsChange: (tags: string[]) => void;
   disabled?: boolean;
+  onFocus?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -29,7 +30,7 @@ export interface TagChipListProps {
  * Gestion interactive des tags d'un post.
  * Saisie libre séparée par des virgules — chaque tag est créé à la validation ou au blur.
  */
-export function TagChipList({ tags, onTagsChange, disabled = false }: TagChipListProps): React.JSX.Element {
+export function TagChipList({ tags, onTagsChange, disabled = false, onFocus }: TagChipListProps): React.JSX.Element {
   const [inputValue, setInputValue] = useState('');
 
   function commitInput(): void {
@@ -69,6 +70,7 @@ export function TagChipList({ tags, onTagsChange, disabled = false }: TagChipLis
         onChangeText={setInputValue}
         onSubmitEditing={commitInput}
         onBlur={commitInput}
+        onFocus={onFocus}
         placeholder="Ajouter des tags (séparés par une virgule)"
         dense
         disabled={disabled}
