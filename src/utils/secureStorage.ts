@@ -17,7 +17,13 @@ import * as SecureStore from 'expo-secure-store';
  * - GHOST_INSTANCES : JSON sérialisé de GhostInstance[]
  * - GHOST_ACTIVE_ID : uuid de l'instance active
  */
-type SecureKey = 'GHOST_INSTANCES' | 'GHOST_ACTIVE_ID';
+type SecureKey =
+  | 'GHOST_INSTANCES'
+  | 'GHOST_ACTIVE_ID'
+  | 'SETTINGS_THEME'
+  | 'SETTINGS_DEFAULT_STATUS'
+  | 'SETTINGS_CONFIRM_DELETE'
+  | 'SETTINGS_VOICE_VOCABULARY';
 
 /**
  * Lit une valeur depuis SecureStore.

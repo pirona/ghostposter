@@ -6,6 +6,8 @@ import { markdownToHtml } from '../utils/contentConverter';
 
 export interface MarkdownPreviewProps {
   markdown: string;
+  title?: string;
+  featureImage?: string | null;
 }
 
 function buildCss(dark: boolean): string {
@@ -62,15 +64,29 @@ function buildCss(dark: boolean): string {
     table { border-collapse: collapse; width: 100%; }
     th, td { border: 1px solid ${tableBorder}; padding: 8px 12px; }
     th { background: ${thBg}; }
+    .preview-title { font-size: 1.9em; font-weight: 700; color: ${heading}; margin: 0 0 0.6em; line-height: 1.25; }
+    .preview-feature-image { width: 100%; height: auto; border-radius: 8px; margin-bottom: 1.2em; display: block; }
   `;
 }
 
-export function MarkdownPreview({ markdown }: MarkdownPreviewProps): React.JSX.Element {
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export function MarkdownPreview({ markdown, title, featureImage }: MarkdownPreviewProps): React.JSX.Element {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
   const htmlSource = useMemo(() => {
     const body = markdownToHtml(markdown) || '<p><em>Aperçu vide</em></p>';
+    const titleHtml = title ? `<h1 class="preview-title">${escapeHtml(title)}</h1>` : '';
+    const imageHtml = featureImage
+      ? `<img class="preview-feature-image" src="${escapeHtml(featureImage)}" />`
+      : '';
     return {
       html: `<!DOCTYPE html>
 <html lang="fr">
@@ -79,10 +95,10 @@ export function MarkdownPreview({ markdown }: MarkdownPreviewProps): React.JSX.E
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>${buildCss(isDark)}</style>
 </head>
-<body>${body}</body>
+<body>${imageHtml}${titleHtml}${body}</body>
 </html>`,
     };
-  }, [markdown, isDark]);
+  }, [markdown, title, featureImage, isDark]);
 
   return (
     <View style={styles.container}>

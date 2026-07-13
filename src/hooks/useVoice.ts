@@ -30,7 +30,7 @@ export function useVoice() {
     setState('error');
   });
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (contextualStrings?: string[]) => {
     setError(null);
     setTranscript('');
     const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
@@ -40,7 +40,11 @@ export function useVoice() {
       return;
     }
     const lang = getLocales()[0]?.languageTag ?? 'fr-FR';
-    ExpoSpeechRecognitionModule.start({ lang, interimResults: true });
+    ExpoSpeechRecognitionModule.start({
+      lang,
+      interimResults: true,
+      ...(contextualStrings && contextualStrings.length > 0 ? { contextualStrings } : {}),
+    });
   }, []);
 
   const stop = useCallback(() => {

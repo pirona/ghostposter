@@ -23,6 +23,7 @@ import {
 import { useRouter } from 'expo-router';
 
 import { usePostStore } from '../../src/store/postStore';
+import { useSettingsStore } from '../../src/store/settingsStore';
 import { usePostEditor } from '../../src/hooks/usePostEditor';
 import { useVoice } from '../../src/hooks/useVoice';
 import { TagChipList } from '../../src/components/TagChipList';
@@ -48,11 +49,18 @@ export default function ComposeScreen(): React.JSX.Element {
   const { colors } = useTheme();
 
   const { state: voiceState, transcript, error: voiceError, start: startVoice, stop: stopVoice, reset: resetVoice } = useVoice();
+  const voiceVocabulary = useSettingsStore((s) => s.voiceVocabulary);
 
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const title = currentPost?.title ?? '';
+  const content = currentPost?.markdownContent ?? '';
+  const tags = currentPost?.tags ?? [];
+  const ghostId = currentPost?.ghostId;
+  const featureImage = currentPost?.featureImage ?? null;
 
   // Cursor tracking for voice insertion
   const selectionRef = useRef({ start: 0, end: 0 });
@@ -63,11 +71,6 @@ export default function ComposeScreen(): React.JSX.Element {
   // Always-current content for use in async voice callbacks
   const contentRef = useRef(content);
   useEffect(() => { contentRef.current = content; }, [content]);
-
-  const title = currentPost?.title ?? '';
-  const content = currentPost?.markdownContent ?? '';
-  const tags = currentPost?.tags ?? [];
-  const ghostId = currentPost?.ghostId;
 
   // Insert/replace voice transcript at the anchor position as interim results arrive
   useEffect(() => {
@@ -80,9 +83,12 @@ export default function ComposeScreen(): React.JSX.Element {
     voicePrevLengthRef.current = transcript.length;
   }, [transcript, setMarkdownContent]);
 
-  // When voice session ends, finalize: reset anchor
+  // When voice session ends, finalize: move the cursor to the end of the inserted
+  // text so a subsequent dictation continues instead of overwriting it.
   useEffect(() => {
     if ((voiceState === 'idle' || voiceState === 'error') && voiceAnchorRef.current !== null) {
+      const endPos = voiceAnchorRef.current + voicePrevLengthRef.current;
+      selectionRef.current = { start: endPos, end: endPos };
       voiceAnchorRef.current = null;
       voicePrevLengthRef.current = 0;
     }
@@ -109,7 +115,7 @@ export default function ComposeScreen(): React.JSX.Element {
     }
     voicePrevLengthRef.current = 0;
     resetVoice();
-    startVoice();
+    startVoice(voiceVocabulary);
   }
 
   function handleTitleChange(value: string): void {
@@ -239,7 +245,7 @@ export default function ComposeScreen(): React.JSX.Element {
       <Divider />
 
       {isPreviewMode ? (
-        <MarkdownPreview markdown={content} />
+        <MarkdownPreview markdown={content} title={title} featureImage={featureImage} />
       ) : (
         <View style={styles.editorBody}>
           <ScrollView

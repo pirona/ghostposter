@@ -28,6 +28,7 @@ import Constants from 'expo-constants';
 import { useInstances, InstanceFormData, InstanceFormErrors } from '../src/hooks/useInstances';
 import { useSettingsStore, ThemePreference, DefaultPostStatus } from '../src/store/settingsStore';
 import { InstanceListItem } from '../src/components/InstanceListItem';
+import { TagChipList } from '../src/components/TagChipList';
 import { GhostInstance } from '../src/store/instanceStore';
 
 interface FormState {
@@ -53,9 +54,11 @@ export default function SettingsScreen(): React.JSX.Element {
     themePreference,
     defaultPostStatus,
     confirmDelete,
+    voiceVocabulary,
     setThemePreference,
     setDefaultPostStatus,
     setConfirmDelete,
+    setVoiceVocabulary,
   } = useSettingsStore();
 
   const { colors } = useTheme();
@@ -174,6 +177,20 @@ export default function SettingsScreen(): React.JSX.Element {
               color={colors.primary}
             />
           </View>
+        </View>
+
+        {/* ── Reconnaissance vocale ── */}
+        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>
+          Reconnaissance vocale
+        </List.Subheader>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <Text variant="bodyMedium" style={[styles.settingLabel, { color: colors.onSurface }]}>
+            Vocabulaire spécifique
+          </Text>
+          <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant, marginBottom: 8 }}>
+            Termes techniques à privilégier lors de la dictée (ex : HAProxy, n8n, Kubernetes)
+          </Text>
+          <TagChipList tags={voiceVocabulary} onTagsChange={setVoiceVocabulary} />
         </View>
 
         {/* ── Instances Ghost ── */}
