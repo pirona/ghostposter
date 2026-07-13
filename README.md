@@ -18,6 +18,17 @@ Write posts in Markdown, preview them, upload images, manage drafts and publishe
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="assets/screenshots/posts.png" width="200" alt="Post list" />
+  <img src="assets/screenshots/compose.png" width="200" alt="Markdown editor" />
+  <img src="assets/screenshots/preview.png" width="200" alt="Markdown preview" />
+  <img src="assets/screenshots/settings.png" width="200" alt="Settings and Ghost instances" />
+</p>
+
+---
+
 ## Getting the app
 
 Download the latest APK from the [Releases page](https://github.com/pirona/ghostposter/releases) and install it on your Android device.
