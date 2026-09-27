@@ -1,29 +1,8 @@
-/**
- * @file src/api/ghostTypes.ts
- * @description Définitions TypeScript pour l'API Ghost Admin.
- *              Contient les interfaces de données, les types de payload,
- *              et les classes d'erreurs typées utilisées dans toute l'application.
- *
- * @exports GhostSite
- * @exports GhostTag
- * @exports GhostPost
- * @exports GhostPostsResponse
- * @exports GhostImageUploadResponse
- * @exports CreatePostPayload
- * @exports UpdatePostPayload
- * @exports PostFilter
- * @exports GhostApiError
- * @exports AuthenticationError
- * @exports ConflictError
- * @exports ValidationError
- * @exports RateLimitError
- * @exports NotConfiguredError
- * @exports InvalidApiKeyError
- * @exports JwtSigningError
- */
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Ghost Admin API data shapes, payloads and typed errors.
 
 // ---------------------------------------------------------------------------
-// Données Ghost
+// Ghost data
 // ---------------------------------------------------------------------------
 
 export interface GhostSite {
@@ -39,82 +18,97 @@ export interface GhostTag {
   slug?: string;
 }
 
-export interface GhostPost {
+export type PostStatus = 'draft' | 'published' | 'scheduled';
+
+/** SEO / social fields edited from the post settings sheet — null means "unset" in Ghost. */
+export interface PostMeta {
+  custom_excerpt: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  og_title: string | null;
+  og_description: string | null;
+  twitter_title: string | null;
+  twitter_description: string | null;
+}
+
+export interface GhostPost extends PostMeta {
   id: string;
   uuid: string;
+  slug: string;
   title: string;
-  /** Contenu HTML rendu — utilisé pour la conversion vers Markdown à l'édition. */
-  html: string | null;
-  /** Format natif Ghost Lexical — non utilisé côté app, on travaille toujours avec html. */
-  lexical: string | null;
-  status: 'draft' | 'published' | 'scheduled';
+  /** Only present when requested with `formats=html`. */
+  html?: string | null;
+  status: PostStatus;
   tags: GhostTag[];
-  /** URL de l'image à la une — null si aucune image définie. */
   feature_image: string | null;
-  /** Extrait personnalisé — null si non défini dans Ghost. */
-  custom_excerpt: string | null;
-  /** ISO 8601 — obligatoire dans les requêtes PUT (optimistic lock). */
+  /** ISO 8601 — required in PUT payloads (optimistic lock). */
   updated_at: string;
   published_at: string | null;
   url: string;
 }
 
+export interface GhostPagination {
+  page: number;
+  pages: number;
+  limit: number;
+  total: number;
+  next: number | null;
+  prev: number | null;
+}
+
 export interface GhostPostsResponse {
   posts: GhostPost[];
-  meta: {
-    pagination: {
-      page: number;
-      pages: number;
-      limit: number;
-      total: number;
-      next: number | null;
-      prev: number | null;
-    };
-  };
+  meta: { pagination: GhostPagination };
 }
 
 export interface GhostImageUploadResponse {
-  images: Array<{
-    url: string;
-    ref: string | null;
-  }>;
+  images: Array<{ url: string; ref: string | null }>;
+}
+
+/** Subset of Ghost's /oembed/ response: either an oEmbed payload (html) or bookmark metadata. */
+export interface GhostOembedResponse {
+  type?: string;
+  html?: string;
+  url?: string;
+  title?: string;
+  metadata?: {
+    url?: string;
+    title?: string | null;
+    description?: string | null;
+    author?: string | null;
+    publisher?: string | null;
+    thumbnail?: string | null;
+    icon?: string | null;
+  };
 }
 
 // ---------------------------------------------------------------------------
-// Payloads de mutation
+// Mutation payloads
 // ---------------------------------------------------------------------------
 
+export interface PostWriteFields extends PostMeta {
+  title: string;
+  html: string;
+  status: PostStatus;
+  tags: Array<{ name: string }>;
+  feature_image: string | null;
+}
+
 export interface CreatePostPayload {
-  posts: Array<{
-    title: string;
-    html: string;
-    status: 'draft' | 'published';
-    tags?: Array<{ name: string }>;
-    feature_image?: string | null;
-  }>;
+  posts: [PostWriteFields];
 }
 
 export interface UpdatePostPayload {
-  posts: Array<{
-    title: string;
-    html: string;
-    status: 'draft' | 'published';
-    tags?: Array<{ name: string }>;
-    feature_image?: string | null;
-    /** OBLIGATOIRE — Ghost rejette le PUT en 409 si ce champ est absent ou périmé. */
-    updated_at: string;
-  }>;
+  /** updated_at is mandatory — Ghost answers 409 when it is missing or stale. */
+  posts: [PostWriteFields & { updated_at: string }];
 }
 
-export type PostFilter = 'all' | 'draft' | 'published';
+export type PostFilter = 'all' | PostStatus;
 
 // ---------------------------------------------------------------------------
-// Classes d'erreurs typées
+// Typed errors
 // ---------------------------------------------------------------------------
 
-/**
- * Erreur générique Ghost API — inclut le code HTTP d'origine.
- */
 export class GhostApiError extends Error {
   constructor(
     public readonly status: number,
@@ -125,7 +119,6 @@ export class GhostApiError extends Error {
   }
 }
 
-/** Clé API invalide (401) — redirige vers l'écran Settings. */
 export class AuthenticationError extends GhostApiError {
   constructor(status: number, message: string) {
     super(status, message);
@@ -133,10 +126,7 @@ export class AuthenticationError extends GhostApiError {
   }
 }
 
-/**
- * Conflit de version (409) — `updated_at` périmé.
- * Invite l'utilisateur à recharger le post avant de sauvegarder.
- */
+/** 409 — the post changed on the server since it was loaded. */
 export class ConflictError extends GhostApiError {
   constructor(status: number, message: string) {
     super(status, message);
@@ -144,7 +134,6 @@ export class ConflictError extends GhostApiError {
   }
 }
 
-/** Erreur de validation Ghost (422) — contenu ou champ refusé. */
 export class ValidationError extends GhostApiError {
   constructor(status: number, message: string) {
     super(status, message);
@@ -152,7 +141,6 @@ export class ValidationError extends GhostApiError {
   }
 }
 
-/** Limite de débit atteinte (429) — attendre avant de réessayer. */
 export class RateLimitError extends GhostApiError {
   constructor(status: number, message: string) {
     super(status, message);
@@ -160,7 +148,6 @@ export class RateLimitError extends GhostApiError {
   }
 }
 
-/** Aucune instance Ghost configurée — redirige vers Settings. */
 export class NotConfiguredError extends Error {
   constructor(message = 'Aucune instance Ghost configurée') {
     super(message);
@@ -168,7 +155,6 @@ export class NotConfiguredError extends Error {
   }
 }
 
-/** Format de clé Admin API invalide — doit être `id:secret` en hexadécimal. */
 export class InvalidApiKeyError extends Error {
   constructor(message: string) {
     super(message);
@@ -176,7 +162,6 @@ export class InvalidApiKeyError extends Error {
   }
 }
 
-/** Échec de la signature du JWT Ghost. */
 export class JwtSigningError extends Error {
   constructor(message: string) {
     super(message);

@@ -1,163 +1,116 @@
-/**
- * @file src/hooks/useInstances.ts
- * @description Hook de gestion des instances Ghost.
- *              Encapsule la validation du formulaire, le test de connexion
- *              et la confirmation de suppression — logique UI absente du store.
- *
- * @exports useInstances
- * @exports InstanceFormData
- * @exports InstanceFormErrors
- */
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Instance form validation, connection test and confirmations on top of instanceStore.
 
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import axios from 'axios';
 
 import { useInstanceStore, GhostInstance } from '../store/instanceStore';
 import { testGhostConnection } from '../api/ghostClient';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import {
+  AuthenticationError,
+  GhostApiError,
+  InvalidApiKeyError,
+  RateLimitError,
+} from '../api/ghostTypes';
 
 export interface InstanceFormData {
   name: string;
   url: string;
+  /** Empty when editing means "keep the stored key". */
   apiKey: string;
 }
 
 export type InstanceFormErrors = Partial<Record<keyof InstanceFormData, string>>;
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
+const API_KEY_RE = /^[a-f0-9]+:[a-f0-9]+$/i;
 
-/**
- * Fournit les opérations CRUD sur les instances avec validation et feedback UI.
- * Le store ne contient que la logique de persistance ; ce hook ajoute
- * la validation de formulaire et le test réseau.
- */
+function normalizeUrl(url: string): string {
+  return url.trim().replace(/\/+$/, '');
+}
+
+function validate(data: InstanceFormData, editing: boolean): InstanceFormErrors {
+  const errors: InstanceFormErrors = {};
+  const url = normalizeUrl(data.url);
+  const key = data.apiKey.trim();
+
+  if (!data.name.trim()) errors.name = 'Le nom est requis.';
+  if (!url) errors.url = "L'URL est requise.";
+  else if (!/^https:\/\/[^\s/]+/.test(url)) errors.url = "L'URL doit commencer par https://";
+
+  if (!key && !editing) errors.apiKey = 'La clé Admin API est requise.';
+  else if (key && !API_KEY_RE.test(key)) {
+    errors.apiKey = 'Format invalide. Attendu : id:secret (caractères hexadécimaux uniquement).';
+  }
+  return errors;
+}
+
+function connectionError(err: unknown): InstanceFormErrors {
+  if (err instanceof AuthenticationError || err instanceof InvalidApiKeyError) {
+    return { apiKey: 'Clé API invalide ou accès refusé.' };
+  }
+  if (err instanceof RateLimitError) {
+    return { url: 'Trop de tentatives — attendez quelques secondes avant de réessayer.' };
+  }
+  if (err instanceof GhostApiError && err.status >= 500) {
+    return { url: `Erreur serveur Ghost (${err.status}). Vérifiez que l'instance est opérationnelle.` };
+  }
+  if (err instanceof GhostApiError && err.status === 404) {
+    return { url: "Aucune API Ghost à cette adresse (404). Vérifiez l'URL." };
+  }
+  return { url: `Connexion impossible : ${err instanceof Error ? err.message : String(err)}` };
+}
+
 export function useInstances() {
-  const {
-    instances,
-    activeInstanceId,
-    isLoading,
-    error,
-    addInstance,
-    removeInstance,
-    setActiveInstance,
-    updateInstance,
-  } = useInstanceStore();
-
+  const store = useInstanceStore();
   const [isTesting, setIsTesting] = useState(false);
 
-  const activeInstance = instances.find((i) => i.id === activeInstanceId) ?? null;
-
-  // -------------------------------------------------------------------------
-  // Validation du formulaire
-  // -------------------------------------------------------------------------
-
-  function validateForm(data: InstanceFormData): InstanceFormErrors {
-    const errors: InstanceFormErrors = {};
-
-    if (!data.name.trim()) {
-      errors.name = 'Le nom est requis.';
-    }
-
-    if (!data.url.trim()) {
-      errors.url = 'L\'URL est requise.';
-    } else if (!/^https:\/\/.+/.test(data.url.trim())) {
-      errors.url = 'L\'URL doit commencer par https://';
-    } else if (data.url.trim().endsWith('/')) {
-      errors.url = 'L\'URL ne doit pas se terminer par un /.';
-    }
-
-    if (!data.apiKey.trim()) {
-      errors.apiKey = 'La clé Admin API est requise.';
-    } else if (!/^[a-f0-9]+:[a-f0-9]+$/i.test(data.apiKey.trim())) {
-      errors.apiKey = 'Format invalide. Attendu : id:secret (caractères hexadécimaux uniquement).';
-    }
-
-    return errors;
-  }
-
-  // -------------------------------------------------------------------------
-  // Ajout avec validation et test de connexion
-  // -------------------------------------------------------------------------
-
   /**
-   * Valide le formulaire, teste la connexion Ghost, puis ajoute l'instance.
-   *
-   * @param data     - Données du formulaire
-   * @param onError  - Appelé pour chaque champ en erreur avec le message correspondant
-   * @returns true si l'instance a été ajoutée, false sinon
+   * Adds a new instance, or updates `editing` in place. The connection is tested only
+   * when URL or key change, so renaming works offline.
+   * @returns field errors, or null on success
    */
-  async function addInstanceWithValidation(
+  async function saveInstance(
     data: InstanceFormData,
-    onError: (field: keyof InstanceFormErrors, message: string) => void,
-  ): Promise<boolean> {
-    const errors = validateForm(data);
-    if (Object.keys(errors).length > 0) {
-      (Object.entries(errors) as Array<[keyof InstanceFormErrors, string]>).forEach(
-        ([field, message]) => onError(field, message),
-      );
-      return false;
-    }
+    editing?: GhostInstance,
+  ): Promise<InstanceFormErrors | null> {
+    const errors = validate(data, !!editing);
+    if (Object.keys(errors).length > 0) return errors;
+
+    const next = {
+      name: data.name.trim(),
+      url: normalizeUrl(data.url),
+      apiKey: data.apiKey.trim() || editing?.apiKey || '',
+    };
+    const needsTest = !editing || next.url !== editing.url || next.apiKey !== editing.apiKey;
 
     setIsTesting(true);
     try {
-      await testGhostConnection(data.url.trim(), data.apiKey.trim());
-      await addInstance({
-        name: data.name.trim(),
-        url: data.url.trim(),
-        apiKey: data.apiKey.trim(),
-      });
-      return true;
+      if (needsTest) await testGhostConnection(next.url, next.apiKey);
+      if (editing) await store.updateInstance(editing.id, next);
+      else await store.addInstance(next);
+      return null;
     } catch (err) {
-      const status = axios.isAxiosError(err) ? err.response?.status : null;
-      if (status === 401 || status === 403) {
-        onError('apiKey', 'Clé API invalide ou accès refusé (401/403).');
-      } else if (status === 429) {
-        onError('url', 'Trop de tentatives — attendez quelques secondes avant de réessayer.');
-      } else if (status !== null && status >= 500) {
-        onError('url', `Erreur serveur Ghost (${status}). Vérifiez que l'instance est opérationnelle.`);
-      } else if (axios.isAxiosError(err) && !err.response) {
-        onError('url', `Impossible de joindre l'instance : ${err.message}`);
-      } else {
-        const message =
-          err instanceof Error
-            ? `Connexion impossible : ${err.message}`
-            : 'Connexion impossible. Vérifiez l\'URL.';
-        onError('url', message);
-      }
-      return false;
+      return connectionError(err);
     } finally {
       setIsTesting(false);
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Suppression avec confirmation
-  // -------------------------------------------------------------------------
-
-  /**
-   * Demande confirmation puis supprime l'instance si l'utilisateur accepte.
-   * La confirmation est une Alert native (action irréversible).
-   *
-   * @param instance - Instance à supprimer
-   */
-  function removeInstanceWithConfirm(instance: GhostInstance): void {
+  function removeInstanceWithConfirm(instance: GhostInstance, onRemoved?: () => void): void {
+    const isActive = instance.id === store.activeInstanceId;
     Alert.alert(
-      'Supprimer l\'instance',
-      `Supprimer "${instance.name}" ? Cette action est irréversible et la configuration sera perdue.`,
+      "Supprimer l'instance",
+      `Supprimer « ${instance.name} » de l'application ?${isActive ? "\n\nC'est l'instance active." : ''}\n\n`
+        + "Seule la configuration locale est supprimée : rien n'est modifié sur le blog. "
+        + 'Pensez à révoquer la clé dans Ghost Admin → Intégrations si elle ne sert plus.',
       [
         { text: 'Annuler', style: 'cancel' },
         {
           text: 'Supprimer',
           style: 'destructive',
           onPress: () => {
-            removeInstance(instance.id).catch((err) => {
-              console.error('Erreur removeInstance:', err instanceof Error ? err.message : err);
+            store.removeInstance(instance.id).then(onRemoved).catch((err) => {
+              Alert.alert('Erreur', err instanceof Error ? err.message : String(err));
             });
           },
         },
@@ -166,15 +119,12 @@ export function useInstances() {
   }
 
   return {
-    instances,
-    activeInstanceId,
-    activeInstance,
-    isLoading,
+    instances: store.instances,
+    activeInstanceId: store.activeInstanceId,
+    isLoading: store.isLoading,
     isTesting,
-    error,
-    addInstanceWithValidation,
+    saveInstance,
     removeInstanceWithConfirm,
-    setActiveInstance,
-    updateInstance,
+    setActiveInstance: store.setActiveInstance,
   };
 }

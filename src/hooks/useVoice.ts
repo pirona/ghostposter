@@ -15,17 +15,23 @@ export function useVoice() {
 
   useSpeechRecognitionEvent('start', () => setState('listening'));
 
+  // Authoritative end-of-session signal — the underlying on-device recognizer is
+  // continuous and emits isFinal results per-phrase while still listening, so 'idle'
+  // must wait for the real session teardown rather than any single result.
   useSpeechRecognitionEvent('end', () => {
-    setState((s) => (s === 'listening' ? 'processing' : s));
+    setState((s) => (s === 'error' ? s : 'idle'));
   });
 
   useSpeechRecognitionEvent('result', (event) => {
     const best = event.results[0]?.transcript ?? '';
     setTranscript(best);
-    if (event.isFinal) setState('idle');
   });
 
   useSpeechRecognitionEvent('error', (event) => {
+    // The recognizer fires ERROR_NO_MATCH ("no-speech") as a session-teardown artifact
+    // even after a valid transcript was already delivered — not a real failure. Let the
+    // 'end' event that follows finalize to idle instead of surfacing a false error toast.
+    if (event.error === 'no-speech' && transcript.length > 0) return;
     setError(event.error ?? 'Reconnaissance vocale échouée');
     setState('error');
   });

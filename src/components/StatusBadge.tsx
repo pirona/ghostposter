@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
+import { PostStatus } from '../api/ghostTypes';
+
 export interface StatusBadgeProps {
-  status: 'draft' | 'published' | 'scheduled';
+  status: PostStatus;
 }
 
 const STATUS_CONFIG = {

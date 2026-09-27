@@ -1,112 +1,93 @@
-import React, { useRef } from 'react';
-import { StyleSheet, View, TouchableOpacity } from 'react-native';
-import { Text, Surface, Chip, useTheme } from 'react-native-paper';
-import { Swipeable } from 'react-native-gesture-handler';
+// SPDX-License-Identifier: GPL-3.0-or-later
+import React, { useState } from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Chip, IconButton, Menu, Text, useTheme } from 'react-native-paper';
 
 import { GhostInstance } from '../store/instanceStore';
 
-export interface InstanceListItemProps {
+interface Props {
   instance: GhostInstance;
   isActive: boolean;
-  onPress: (instance: GhostInstance) => void;
-  onDelete: (id: string) => void;
+  onSelect: (instance: GhostInstance) => void;
+  onEdit: (instance: GhostInstance) => void;
+  onDelete: (instance: GhostInstance) => void;
 }
 
-export function InstanceListItem({
-  instance,
-  isActive,
-  onPress,
-  onDelete,
-}: InstanceListItemProps): React.JSX.Element {
-  const swipeableRef = useRef<Swipeable>(null);
+export function InstanceListItem({ instance, isActive, onSelect, onEdit, onDelete }: Props): React.JSX.Element {
   const { colors } = useTheme();
-
-  function handleDeletePress(): void {
-    swipeableRef.current?.close();
-    onDelete(instance.id);
-  }
-
-  function renderRightActions(): React.JSX.Element {
-    return (
-      <TouchableOpacity style={styles.deleteAction} onPress={handleDeletePress}>
-        <Text style={styles.deleteText}>Supprimer</Text>
-      </TouchableOpacity>
-    );
-  }
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <Swipeable
-      ref={swipeableRef}
-      renderRightActions={renderRightActions}
-      friction={2}
-      enabled={!isActive}
-    >
-      <Surface
-        style={[styles.surface, isActive && { borderWidth: 2, borderColor: colors.primary }]}
-        elevation={1}
+    <View style={styles.row}>
+      <TouchableOpacity
+        style={styles.content}
+        onPress={() => onSelect(instance)}
+        disabled={isActive}
+        activeOpacity={0.7}
+        accessibilityLabel={isActive ? `${instance.name}, instance active` : `Activer ${instance.name}`}
       >
-        <TouchableOpacity
-          style={styles.content}
-          onPress={() => onPress(instance)}
-          activeOpacity={0.7}
-          disabled={isActive}
-        >
-          <View style={styles.header}>
-            <Text style={styles.name} variant="titleMedium" numberOfLines={1}>
-              {instance.name}
-            </Text>
-            {isActive && (
-              <Chip
-                compact
-                style={{ backgroundColor: colors.primary + '22' }}
-                textStyle={{ color: colors.primary, fontSize: 11, fontWeight: '600' }}
-              >
-                Actif
-              </Chip>
-            )}
-          </View>
-          <Text style={[styles.url, { color: colors.onSurfaceVariant }]} variant="bodySmall" numberOfLines={1}>
-            {instance.url}
-          </Text>
-        </TouchableOpacity>
-      </Surface>
-    </Swipeable>
+        <View style={styles.header}>
+          <Text variant="titleMedium" style={styles.name} numberOfLines={1}>{instance.name}</Text>
+          {isActive && (
+            <Chip compact style={{ backgroundColor: colors.primaryContainer }} textStyle={styles.chipText}>
+              Active
+            </Chip>
+          )}
+        </View>
+        <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant }} numberOfLines={1}>
+          {instance.url}
+        </Text>
+      </TouchableOpacity>
+      <Menu
+        visible={menuOpen}
+        onDismiss={() => setMenuOpen(false)}
+        anchor={
+          <IconButton icon="dots-vertical" onPress={() => setMenuOpen(true)} accessibilityLabel={`Actions pour ${instance.name}`} />
+        }
+      >
+        <Menu.Item
+          leadingIcon="pencil-outline"
+          title="Modifier"
+          onPress={() => {
+            setMenuOpen(false);
+            onEdit(instance);
+          }}
+        />
+        <Menu.Item
+          leadingIcon="delete-outline"
+          title="Supprimer"
+          titleStyle={{ color: colors.error }}
+          onPress={() => {
+            setMenuOpen(false);
+            onDelete(instance);
+          }}
+        />
+      </Menu>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  surface: {
-    marginHorizontal: 16,
-    marginVertical: 6,
-    borderRadius: 12,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   content: {
-    padding: 16,
-    gap: 4,
+    flex: 1,
+    paddingVertical: 12,
+    paddingLeft: 16,
+    gap: 2,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,
   },
   name: {
     fontWeight: '600',
-    flex: 1,
+    flexShrink: 1,
   },
-  url: {},
-  deleteAction: {
-    backgroundColor: '#D32F2F',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 90,
-    marginVertical: 6,
-    marginRight: 16,
-    borderRadius: 12,
-  },
-  deleteText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 13,
+  chipText: {
+    fontSize: 11,
   },
 });

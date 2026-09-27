@@ -10,6 +10,17 @@
 
 Write posts in Markdown, preview them, upload images, manage drafts and published articles — without ever opening the Ghost admin panel. Supports multiple Ghost instances from a single app.
 
+**Editor features**
+
+- Markdown toolbar (bold, italic, headings, lists, quotes, links, code) acting at the cursor
+- Undo / redo, save in place, and a local autosave that offers to restore unsaved work after the app was killed
+- Embeds and bookmark cards like the Ghost web editor: `{{embed: https://youtube.com/…}}` and `{{bookmark: https://…}}` are resolved by Ghost's own oEmbed endpoint on save (YouTube, Vimeo, SoundCloud, Spotify, CodePen…)
+- Code blocks with language, image upload at the cursor, feature image
+- Excerpt, SEO and social (OpenGraph / X) fields, with a warning before publishing without cover image or metadata
+- Voice dictation (push-to-talk) into title, tags or body
+- Drafts, published and scheduled posts; title search; tag suggestions from the blog's existing tags
+- Editing posts written in the Ghost web editor is lossless: cards the app can't edit (galleries, callouts, captioned images, HTML cards…) are kept as raw HTML blocks
+
 **What it doesn't do:** manage members, newsletters, theme, or instance settings. This is a mobile publishing tool, not an embedded admin interface.
 
 → **[Ko-fi](https://ko-fi.com/billisdead)**
@@ -41,7 +52,9 @@ Open the app, go to Settings, and add an instance:
 
 1. Enter a display name, your Ghost instance URL, and an Admin API key
 2. The key is in Ghost Admin → Settings → Integrations → Add custom integration
-3. The app tests the connection before saving
+3. The app tests the connection (and the key itself) before saving
+
+Instances can be edited or removed from their ⋮ menu. When editing, leave the key field empty to keep the stored key. Removing an instance only deletes the local configuration — revoke the key in Ghost if it is no longer used.
 
 API keys are stored in the Android Keystore — never in plaintext, never in logs.
 

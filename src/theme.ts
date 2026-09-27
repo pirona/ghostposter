@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { MD3LightTheme, MD3DarkTheme, configureFonts } from 'react-native-paper';
 
 const fonts = configureFonts({

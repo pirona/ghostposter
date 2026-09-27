@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import React, { useEffect } from 'react';
 import { StyleSheet, useColorScheme } from 'react-native';
 import { Stack } from 'expo-router';

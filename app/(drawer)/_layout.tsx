@@ -1,14 +1,16 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { Drawer } from 'expo-router/drawer';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { Text, Divider, List, useTheme, TouchableRipple } from 'react-native-paper';
 
 import { useInstanceStore } from '../../src/store/instanceStore';
-import { usePostStore } from '../../src/store/postStore';
+import { useEditorStore } from '../../src/store/editorStore';
+import { confirmDiscardChanges } from '../../src/utils/editorGuard';
 
 function DrawerContent(props: DrawerContentComponentProps): React.JSX.Element {
   const router = useRouter();
@@ -18,7 +20,6 @@ function DrawerContent(props: DrawerContentComponentProps): React.JSX.Element {
   const instances = useInstanceStore((s) => s.instances);
   const activeInstanceId = useInstanceStore((s) => s.activeInstanceId);
   const setActiveInstance = useInstanceStore((s) => s.setActiveInstance);
-  const resetCurrentPost = usePostStore((s) => s.resetCurrentPost);
 
   const activeInstance = instances.find((i) => i.id === activeInstanceId);
 
@@ -32,17 +33,18 @@ function DrawerContent(props: DrawerContentComponentProps): React.JSX.Element {
   }
 
   function handleCompose(): void {
-    resetCurrentPost();
-    goTo('/(drawer)/compose');
+    confirmDiscardChanges(() => {
+      useEditorStore.getState().newPost();
+      goTo('/(drawer)/compose');
+    });
   }
 
-  async function handleSwitchInstance(id: string): Promise<void> {
+  // Switching resets the editor (a draft belongs to its instance), so unsaved work is confirmed first.
+  function handleSwitchInstance(id: string): void {
     if (id === activeInstanceId) return;
-    try {
-      await setActiveInstance(id);
-    } catch {
-      // instance introuvable — ignoré
-    }
+    confirmDiscardChanges(() => {
+      setActiveInstance(id).catch(() => undefined);
+    });
   }
 
   return (
@@ -132,6 +134,11 @@ function DrawerContent(props: DrawerContentComponentProps): React.JSX.Element {
 
 export default function DrawerLayout(): React.JSX.Element {
   const { colors } = useTheme();
+  const isLoading = useInstanceStore((s) => s.isLoading);
+  const hasInstance = useInstanceStore((s) => s.activeInstanceId !== null);
+
+  // Last instance removed from Settings: nothing to browse any more.
+  if (!isLoading && !hasInstance) return <Redirect href="/settings" />;
 
   return (
     <Drawer

@@ -1,34 +1,17 @@
-/**
- * @file src/api/ghostClient.ts
- * @description Client HTTP Ghost Admin API.
- *              Configure une instance Axios avec injection automatique du JWT
- *              à chaque requête et gestion centralisée des erreurs HTTP.
- *
- * @exports getSite            — récupère les métadonnées de l'instance Ghost
- * @exports getPosts           — liste paginée des posts
- * @exports getPost            — détail complet d'un post
- * @exports createPost         — création d'un nouveau post
- * @exports updatePost         — mise à jour d'un post existant
- * @exports deletePost         — suppression d'un post
- * @exports uploadImage        — upload d'image et retour de l'URL publique
- * @exports testGhostConnection — test de connexion avec des credentials explicites (Settings)
- *
- * @security La clé API n'est jamais exposée dans ce fichier.
- *           Le JWT est généré à la volée via ghostJwt.ts à chaque requête.
- *           Aucun appel réseau en HTTP plain — HTTPS uniquement.
- */
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Ghost Admin API client. The JWT is minted per request from the active instance;
+// the key itself never leaves SecureStore-backed state and is never logged.
 
-import axios, {
-  AxiosInstance,
-  AxiosError,
-  InternalAxiosRequestConfig,
-} from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 import { generateGhostJwt } from './ghostJwt';
+import { useInstanceStore } from '../store/instanceStore';
 import {
   GhostPost,
   GhostSite,
+  GhostTag,
   GhostPostsResponse,
+  GhostOembedResponse,
   CreatePostPayload,
   UpdatePostPayload,
   PostFilter,
@@ -41,205 +24,172 @@ import {
   NotConfiguredError,
 } from './ghostTypes';
 
-// ---------------------------------------------------------------------------
-// Instance Axios principale
-// ---------------------------------------------------------------------------
+const PAGE_SIZE = 15;
+const ALL_STATUSES = 'status:[draft,published,scheduled]';
 
-const client: AxiosInstance = axios.create({
-  timeout: 10000,
+const client = axios.create({
+  timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ---------------------------------------------------------------------------
-// Intercepteur de requête — injection du JWT et de la baseURL
-// ---------------------------------------------------------------------------
+client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const instance = useInstanceStore.getState().getActiveInstance();
+  if (!instance) throw new NotConfiguredError();
 
-client.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  // Import paresseux pour éviter la dépendance circulaire au niveau du module
-  const { useInstanceStore } = await import('../store/instanceStore');
-  const state = useInstanceStore.getState();
-  const activeInstance = state.instances.find((i) => i.id === state.activeInstanceId) ?? null;
-
-  if (!activeInstance) {
-    throw new NotConfiguredError();
-  }
-
-  config.baseURL = activeInstance.url;
-  const token = generateGhostJwt(activeInstance.apiKey);
-  config.headers.set('Authorization', `Ghost ${token}`);
-
+  config.baseURL = instance.url;
+  config.headers.set('Authorization', `Ghost ${generateGhostJwt(instance.apiKey)}`);
   return config;
 });
 
-// ---------------------------------------------------------------------------
-// Intercepteur de réponse — normalisation des erreurs HTTP
-// ---------------------------------------------------------------------------
-
 client.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    const status = error.response?.status ?? 0;
-    const data = error.response?.data as { errors?: Array<{ message: string }> } | undefined;
-    const message = data?.errors?.[0]?.message ?? error.message;
-
-    switch (status) {
-      case 401:
-        throw new AuthenticationError(status, message);
-      case 409:
-        throw new ConflictError(status, message);
-      case 422:
-        throw new ValidationError(status, message);
-      case 429:
-        throw new RateLimitError(status, message);
-      default:
-        throw new GhostApiError(status, message);
-    }
+  (error: unknown) => {
+    // Errors raised before dispatch (no instance, bad key) keep their own type.
+    if (!axios.isAxiosError(error)) throw error;
+    throw toGhostError(error);
   },
 );
 
-// ---------------------------------------------------------------------------
-// Fonctions API exportées
-// ---------------------------------------------------------------------------
+function toGhostError(error: AxiosError): GhostApiError {
+  const status = error.response?.status ?? 0;
+  const data = error.response?.data as { errors?: Array<{ message: string; context?: string }> } | undefined;
+  const apiError = data?.errors?.[0];
+  const message = apiError
+    ? [apiError.message, apiError.context].filter(Boolean).join(' — ')
+    : status === 0
+      ? `Instance injoignable (${error.message})`
+      : error.message;
 
-/**
- * Récupère les métadonnées du site Ghost.
- * Utilisé pour valider la connexion lors de l'ajout d'une instance.
- */
-export async function getSite(): Promise<GhostSite> {
-  const response = await client.get<{ site: GhostSite }>('/ghost/api/admin/site/');
-  return response.data.site;
+  switch (status) {
+    case 401:
+    case 403:
+      return new AuthenticationError(status, message);
+    case 409:
+      return new ConflictError(status, message);
+    case 422:
+      return new ValidationError(status, message);
+    case 429:
+      return new RateLimitError(status, message);
+    default:
+      return new GhostApiError(status, message);
+  }
 }
 
-/**
- * Récupère une page de posts avec filtre optionnel.
- * Inclut les tags dans la réponse pour éviter un aller-retour supplémentaire à l'édition.
- *
- * @param page   - Numéro de page (commence à 1)
- * @param filter - Filtre de statut : 'all' | 'draft' | 'published'
- */
-export async function getPosts(page: number, filter?: PostFilter): Promise<GhostPostsResponse> {
-  const statusFilter =
-    !filter || filter === 'all' ? 'status:[draft,published]' : `status:${filter}`;
+/** NQL string literal — single quotes delimit, so they must be escaped. */
+function nqlString(value: string): string {
+  return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+}
 
+export async function getPosts(
+  page: number,
+  filter: PostFilter = 'all',
+  search = '',
+): Promise<GhostPostsResponse> {
+  const clauses = [filter === 'all' ? ALL_STATUSES : `status:${filter}`];
+  if (search.trim()) clauses.push(`title:~${nqlString(search.trim())}`);
+
+  // No `formats=html` here: the list only shows metadata, the body is fetched on open.
   const response = await client.get<GhostPostsResponse>('/ghost/api/admin/posts/', {
     params: {
       page,
-      limit: 15,
-      filter: statusFilter,
+      limit: PAGE_SIZE,
+      filter: clauses.join('+'),
       include: 'tags',
-      formats: 'html',
       order: 'updated_at desc',
     },
   });
   return response.data;
 }
 
-/**
- * Récupère le contenu complet d'un post, incluant le HTML et les tags.
- *
- * @param id - Identifiant Ghost du post
- */
 export async function getPost(id: string): Promise<GhostPost> {
   const response = await client.get<{ posts: GhostPost[] }>(`/ghost/api/admin/posts/${id}/`, {
-    params: { include: 'tags' },
+    params: { include: 'tags', formats: 'html' },
   });
   return response.data.posts[0];
 }
 
-/**
- * Crée un nouveau post.
- *
- * @param payload - Titre, contenu HTML, statut et tags
- * @returns Le post créé avec son identifiant Ghost
- */
+// `?source=html` is mandatory: without it Ghost silently drops the `html` field (fixed in v1.3.2).
 export async function createPost(payload: CreatePostPayload): Promise<GhostPost> {
   const response = await client.post<{ posts: GhostPost[] }>(
-    '/ghost/api/admin/posts/?source=html',
+    '/ghost/api/admin/posts/',
     payload,
+    { params: { source: 'html', formats: 'html' } },
   );
   return response.data.posts[0];
 }
 
-/**
- * Met à jour un post existant.
- * Le champ `updated_at` est obligatoire dans le payload (optimistic lock Ghost).
- * Une valeur périmée déclenche une 409 ConflictError.
- *
- * @param id      - Identifiant Ghost du post
- * @param payload - Nouvelles valeurs + updated_at original
- * @returns Le post mis à jour
- */
 export async function updatePost(id: string, payload: UpdatePostPayload): Promise<GhostPost> {
   const response = await client.put<{ posts: GhostPost[] }>(
-    `/ghost/api/admin/posts/${id}/?source=html`,
+    `/ghost/api/admin/posts/${id}/`,
     payload,
+    { params: { source: 'html', formats: 'html' } },
   );
   return response.data.posts[0];
 }
 
-/**
- * Supprime définitivement un post.
- *
- * @param id - Identifiant Ghost du post
- */
 export async function deletePost(id: string): Promise<void> {
   await client.delete(`/ghost/api/admin/posts/${id}/`);
 }
 
-/**
- * Upload une image depuis la galerie locale vers Ghost et retourne l'URL publique.
- * L'URL retournée est directement utilisable dans la syntaxe Markdown `![alt](url)`.
- *
- * @param localUri - URI locale de l'image (fourni par expo-image-picker)
- * @returns URL publique Ghost de l'image uploadée
- */
+export async function getTags(): Promise<GhostTag[]> {
+  const response = await client.get<{ tags: GhostTag[] }>('/ghost/api/admin/tags/', {
+    params: { limit: 'all' },
+  });
+  return response.data.tags;
+}
+
+/** Same endpoint the Ghost editor uses to turn a pasted URL into an embed or bookmark card. */
+export async function fetchOembed(
+  url: string,
+  type?: 'embed' | 'bookmark',
+): Promise<GhostOembedResponse> {
+  const response = await client.get<GhostOembedResponse>('/ghost/api/admin/oembed/', {
+    params: type ? { url, type } : { url },
+  });
+  return response.data;
+}
+
+const MIME_BY_EXT: Record<string, string> = {
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  heic: 'image/heic',
+  heif: 'image/heif',
+};
+
 export async function uploadImage(localUri: string): Promise<string> {
   const filename = localUri.split('/').pop() ?? 'image.jpg';
   const ext = filename.toLowerCase().split('.').pop() ?? '';
-  const MIME_MAP: Record<string, string> = {
-    png: 'image/png',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    heic: 'image/heic',
-    heif: 'image/heif',
-  };
-  const type = MIME_MAP[ext] ?? 'image/jpeg';
+  const type = MIME_BY_EXT[ext] ?? 'image/jpeg';
 
   const formData = new FormData();
-  // React Native utilise un objet {uri, name, type} là où Web attend un Blob
+  // React Native takes {uri, name, type} where the web expects a Blob.
   formData.append('file', { uri: localUri, name: filename, type } as unknown as Blob);
   formData.append('purpose', 'image');
 
-  // Ne pas forcer Content-Type — React Native XMLHttpRequest ajoute le boundary automatiquement.
-  // Avec Axios 1.x + Hermes, forcer 'multipart/form-data' sans boundary fait échouer le parse côté serveur.
+  // Content-Type null lets RN's XHR add the multipart boundary itself.
   const response = await client.post<GhostImageUploadResponse>(
     '/ghost/api/admin/images/upload/',
     formData,
-    // null supprime explicitement le Content-Type par défaut (application/json)
-    // pour laisser React Native XHR injecter le boundary multipart automatiquement.
     { headers: { 'Content-Type': null } },
   );
   return response.data.images[0].url;
 }
 
 /**
- * Teste la connectivité et l'authenticité d'une instance Ghost avec des credentials explicites.
- * Utilisé depuis l'écran Settings avant d'enregistrer une nouvelle instance.
- * Contourne les intercepteurs pour éviter de dépendre d'une instance déjà configurée.
- *
- * @param baseUrl - URL de base de l'instance Ghost (ex: https://ghost.example.fr)
- * @param apiKey  - Clé Admin API au format id:secret
- * @returns Métadonnées du site si la connexion réussit
- * @throws GhostApiError avec le message approprié si la connexion échoue
+ * Bypasses the interceptors so credentials can be checked before they are saved.
+ * /site/ is public in Ghost, so an authenticated call is needed to actually validate the key.
  */
 export async function testGhostConnection(baseUrl: string, apiKey: string): Promise<GhostSite> {
-  const token = generateGhostJwt(apiKey);
-  const response = await axios.get<{ site: GhostSite }>(`${baseUrl}/ghost/api/admin/site/`, {
-    headers: {
-      Authorization: `Ghost ${token}`,
-      'Content-Type': 'application/json',
-    },
-    timeout: 10000,
-  });
-  return response.data.site;
+  const headers = { Authorization: `Ghost ${generateGhostJwt(apiKey)}` };
+  try {
+    const [site] = await Promise.all([
+      axios.get<{ site: GhostSite }>(`${baseUrl}/ghost/api/admin/site/`, { headers, timeout: 15000 }),
+      // Integration keys have no user, so probe a resource they can read.
+      axios.get(`${baseUrl}/ghost/api/admin/posts/`, { headers, timeout: 15000, params: { limit: 1 } }),
+    ]);
+    return site.data.site;
+  } catch (error) {
+    throw axios.isAxiosError(error) ? toGhostError(error) : error;
+  }
 }

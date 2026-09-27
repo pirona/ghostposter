@@ -1,166 +1,115 @@
-/**
- * @file src/store/instanceStore.ts
- * @description Store Zustand pour la gestion des instances Ghost.
- *              Gère la liste des instances configurées, l'instance active,
- *              et la persistance dans SecureStore.
- *
- * @exports useInstanceStore
- * @exports GhostInstance
- *
- * @security Les clés API sont stockées dans SecureStore via secureStorage.ts.
- *           Aucune clé API n'est loggée, même partiellement.
- */
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Configured Ghost instances, persisted in SecureStore. API keys are never logged.
+// Other stores react to activeInstanceId through subscribe() — this module imports none of them.
 
 import { create } from 'zustand';
 import * as Crypto from 'expo-crypto';
 
-import {
-  getSecureItem,
-  setSecureItem,
-  deleteSecureItem,
-} from '../utils/secureStorage';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import { getSecureItem, setSecureItem, deleteSecureItem } from '../utils/secureStorage';
 
 export interface GhostInstance {
-  /** UUID v4 généré à la création de l'instance. */
   id: string;
-  /** Nom lisible choisi par l'utilisateur (ex: "Blog perso", "Billisdead"). */
   name: string;
-  /** URL de base de l'instance Ghost (ex: https://ghost.example.fr). */
+  /** Base URL without trailing slash, e.g. https://blog.example.internal */
   url: string;
-  /** Clé Admin API au format id:secret (valeurs hexadécimales). */
+  /** Admin API key, `id:secret` in hex. */
   apiKey: string;
 }
 
 interface InstanceState {
   instances: GhostInstance[];
   activeInstanceId: string | null;
+  /** Bumped whenever the active instance's URL or key changes, so caches can drop. */
+  credentialsVersion: number;
   isLoading: boolean;
   error: string | null;
 }
 
 interface InstanceActions {
-  /** Charge les instances depuis SecureStore. À appeler une seule fois au démarrage. */
   loadInstances(): Promise<void>;
-  /**
-   * Ajoute une nouvelle instance Ghost.
-   * L'appelant est responsable de valider et tester la connexion avant d'appeler cette fonction.
-   */
+  getActiveInstance(): GhostInstance | null;
   addInstance(data: Omit<GhostInstance, 'id'>): Promise<GhostInstance>;
-  /** Supprime une instance. Si c'était l'instance active, activeInstanceId passe à null. */
-  removeInstance(id: string): Promise<void>;
-  /** Définit l'instance active et réinitialise le store de posts. */
-  setActiveInstance(id: string): Promise<void>;
-  /** Met à jour les propriétés d'une instance existante. */
   updateInstance(id: string, data: Partial<Omit<GhostInstance, 'id'>>): Promise<void>;
+  /** Removing the active instance activates the first remaining one, if any. */
+  removeInstance(id: string): Promise<void>;
+  setActiveInstance(id: string): Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers de persistance
-// ---------------------------------------------------------------------------
+function isInstance(value: unknown): value is GhostInstance {
+  const i = value as GhostInstance;
+  return typeof i === 'object' && i !== null
+    && typeof i.id === 'string' && typeof i.name === 'string'
+    && typeof i.url === 'string' && typeof i.apiKey === 'string';
+}
 
-async function persistState(
-  instances: GhostInstance[],
-  activeInstanceId: string | null,
-): Promise<void> {
+async function persist(instances: GhostInstance[], activeId: string | null): Promise<void> {
   await setSecureItem('GHOST_INSTANCES', JSON.stringify(instances));
-  if (activeInstanceId !== null) {
-    await setSecureItem('GHOST_ACTIVE_ID', activeInstanceId);
-  } else {
-    await deleteSecureItem('GHOST_ACTIVE_ID');
-  }
+  if (activeId) await setSecureItem('GHOST_ACTIVE_ID', activeId);
+  else await deleteSecureItem('GHOST_ACTIVE_ID');
 }
-
-// ---------------------------------------------------------------------------
-// Store
-// ---------------------------------------------------------------------------
 
 export const useInstanceStore = create<InstanceState & InstanceActions>((set, get) => ({
   instances: [],
   activeInstanceId: null,
+  credentialsVersion: 0,
   isLoading: true,
   error: null,
 
-  async loadInstances(): Promise<void> {
+  async loadInstances() {
     set({ isLoading: true, error: null });
     try {
-      const instancesJson = await getSecureItem('GHOST_INSTANCES');
+      const json = await getSecureItem('GHOST_INSTANCES');
       const activeId = await getSecureItem('GHOST_ACTIVE_ID');
-
-      const parsed: unknown = instancesJson ? JSON.parse(instancesJson) : [];
-      const instances: GhostInstance[] = Array.isArray(parsed)
-        ? (parsed as Array<unknown>).filter(
-            (i): i is GhostInstance =>
-              typeof i === 'object' &&
-              i !== null &&
-              typeof (i as GhostInstance).id === 'string' &&
-              typeof (i as GhostInstance).name === 'string' &&
-              typeof (i as GhostInstance).url === 'string' &&
-              typeof (i as GhostInstance).apiKey === 'string',
-          )
-        : [];
-      // Vérifie que l'instance active existe toujours dans la liste
-      const validActiveId =
-        activeId && instances.some((i) => i.id === activeId) ? activeId : null;
-
-      set({ instances, activeInstanceId: validActiveId, isLoading: false });
+      const parsed: unknown = json ? JSON.parse(json) : [];
+      const instances = Array.isArray(parsed) ? parsed.filter(isInstance) : [];
+      const validActive = instances.some((i) => i.id === activeId) ? activeId : instances[0]?.id ?? null;
+      set({ instances, activeInstanceId: validActive, isLoading: false });
     } catch (error) {
-      console.error('Erreur lors du chargement des instances:', error instanceof Error ? error.message : error);
+      console.error('loadInstances failed:', error instanceof Error ? error.message : error);
       set({ isLoading: false, error: 'Impossible de charger les instances configurées.' });
     }
   },
 
-  async addInstance(data: Omit<GhostInstance, 'id'>): Promise<GhostInstance> {
-    const newInstance: GhostInstance = {
-      ...data,
-      id: Crypto.randomUUID(),
-    };
-    const updatedInstances = [...get().instances, newInstance];
-    const currentActiveId = get().activeInstanceId;
-    // Sélectionne automatiquement la première instance ajoutée
-    const newActiveId = currentActiveId ?? newInstance.id;
-
-    set({ instances: updatedInstances, activeInstanceId: newActiveId });
-    await persistState(updatedInstances, newActiveId);
-
-    return newInstance;
+  getActiveInstance() {
+    const { instances, activeInstanceId } = get();
+    return instances.find((i) => i.id === activeInstanceId) ?? null;
   },
 
-  async removeInstance(id: string): Promise<void> {
-    const updatedInstances = get().instances.filter((i) => i.id !== id);
-    const currentActiveId = get().activeInstanceId;
-    const newActiveId = currentActiveId === id ? null : currentActiveId;
-
-    set({ instances: updatedInstances, activeInstanceId: newActiveId });
-    await persistState(updatedInstances, newActiveId);
-
-    if (newActiveId === null) {
-      // Réinitialise les posts car il n'y a plus d'instance active
-      const { usePostStore } = await import('./postStore');
-      usePostStore.getState().resetPosts();
-    }
+  async addInstance(data) {
+    const instance: GhostInstance = { ...data, id: Crypto.randomUUID() };
+    const instances = [...get().instances, instance];
+    const activeId = get().activeInstanceId ?? instance.id;
+    await persist(instances, activeId);
+    set({ instances, activeInstanceId: activeId });
+    return instance;
   },
 
-  async setActiveInstance(id: string): Promise<void> {
-    const exists = get().instances.some((i) => i.id === id);
-    if (!exists) throw new Error(`Instance introuvable : ${id}`);
+  async updateInstance(id, data) {
+    const previous = get().instances.find((i) => i.id === id);
+    if (!previous) throw new Error('Instance introuvable');
+    const updated = { ...previous, ...data };
+    const instances = get().instances.map((i) => (i.id === id ? updated : i));
+    await persist(instances, get().activeInstanceId);
 
-    set({ activeInstanceId: id });
+    const credentialsChanged = updated.url !== previous.url || updated.apiKey !== previous.apiKey;
+    set((s) => ({
+      instances,
+      credentialsVersion:
+        credentialsChanged && id === s.activeInstanceId ? s.credentialsVersion + 1 : s.credentialsVersion,
+    }));
+  },
+
+  async removeInstance(id) {
+    const instances = get().instances.filter((i) => i.id !== id);
+    const current = get().activeInstanceId;
+    const activeId = current === id ? instances[0]?.id ?? null : current;
+    await persist(instances, activeId);
+    set({ instances, activeInstanceId: activeId });
+  },
+
+  async setActiveInstance(id) {
+    if (!get().instances.some((i) => i.id === id)) throw new Error('Instance introuvable');
     await setSecureItem('GHOST_ACTIVE_ID', id);
-
-    // Réinitialise la liste des posts pour la nouvelle instance
-    const { usePostStore } = await import('./postStore');
-    usePostStore.getState().resetPosts();
-  },
-
-  async updateInstance(id: string, data: Partial<Omit<GhostInstance, 'id'>>): Promise<void> {
-    const updatedInstances = get().instances.map((i) =>
-      i.id === id ? { ...i, ...data } : i,
-    );
-    set({ instances: updatedInstances });
-    await persistState(updatedInstances, get().activeInstanceId);
+    set({ activeInstanceId: id });
   },
 }));
