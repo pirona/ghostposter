@@ -5,7 +5,6 @@ import { Drawer } from 'expo-router/drawer';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { Redirect, useRouter } from 'expo-router';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { Text, Divider, List, useTheme, TouchableRipple } from 'react-native-paper';
 
 import { useInstanceStore } from '../../src/store/instanceStore';
@@ -14,7 +13,6 @@ import { confirmDiscardChanges } from '../../src/utils/editorGuard';
 
 function DrawerContent(props: DrawerContentComponentProps): React.JSX.Element {
   const router = useRouter();
-  const navigation = useNavigation();
   const { colors } = useTheme();
 
   const instances = useInstanceStore((s) => s.instances);
@@ -23,8 +21,9 @@ function DrawerContent(props: DrawerContentComponentProps): React.JSX.Element {
 
   const activeInstance = instances.find((i) => i.id === activeInstanceId);
 
+  // props.navigation is the drawer's own navigator; useNavigation() here returns the parent stack.
   function close(): void {
-    navigation.dispatch(DrawerActions.closeDrawer());
+    props.navigation.closeDrawer();
   }
 
   function goTo(path: string): void {

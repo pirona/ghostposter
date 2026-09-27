@@ -2,7 +2,9 @@
 import React, { useRef } from 'react';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
-import ReanimatedSwipeable, { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
+// Legacy Swipeable on purpose: ReanimatedSwipeable in RNGH 2.20 reads shared values during
+// render and floods dev logs with Reanimated warnings. Revisit with the Expo SDK upgrade.
+import { Swipeable } from 'react-native-gesture-handler';
 
 interface Props {
   onDelete: () => void;
@@ -11,11 +13,11 @@ interface Props {
 }
 
 export function SwipeToDelete({ onDelete, enabled = true, children }: Props): React.JSX.Element {
-  const ref = useRef<SwipeableMethods>(null);
+  const ref = useRef<Swipeable>(null);
   const { colors } = useTheme();
 
   return (
-    <ReanimatedSwipeable
+    <Swipeable
       ref={ref}
       enabled={enabled}
       friction={2}
@@ -33,7 +35,7 @@ export function SwipeToDelete({ onDelete, enabled = true, children }: Props): Re
       )}
     >
       {children}
-    </ReanimatedSwipeable>
+    </Swipeable>
   );
 }
 
