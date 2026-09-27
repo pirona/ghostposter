@@ -1,139 +1,112 @@
-import React, { useCallback } from 'react';
-import { StyleSheet, View, FlatList, Image } from 'react-native';
-import { Text, Chip, Button, ActivityIndicator, Snackbar, useTheme } from 'react-native-paper';
-import { useRouter, useFocusEffect } from 'expo-router';
+// SPDX-License-Identifier: GPL-3.0-or-later
+import React, { useCallback, useEffect, useState } from 'react';
+import { FlatList, Image, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Button, Chip, Searchbar, Snackbar, Text, useTheme } from 'react-native-paper';
+import { useFocusEffect, useRouter } from 'expo-router';
 
-import { usePostStore } from '../../src/store/postStore';
+import { usePostListStore } from '../../src/store/postListStore';
+import { useEditorStore } from '../../src/store/editorStore';
 import { PostListItem } from '../../src/components/PostListItem';
 import { GhostPost, PostFilter } from '../../src/api/ghostTypes';
+import { confirmDiscardChanges } from '../../src/utils/editorGuard';
 
-const FILTERS: Array<{ key: PostFilter | 'all'; label: string }> = [
+const FILTERS: Array<{ key: PostFilter; label: string }> = [
   { key: 'all', label: 'Tous' },
   { key: 'draft', label: 'Brouillons' },
+  { key: 'scheduled', label: 'Programmés' },
   { key: 'published', label: 'Publiés' },
 ];
+
+const SEARCH_DEBOUNCE_MS = 400;
 
 export default function PostsScreen(): React.JSX.Element {
   const router = useRouter();
   const { colors } = useTheme();
-  const {
-    posts,
-    statusFilter,
-    isLoading,
-    error,
-    hasMore,
-    fetchPosts,
-    fetchMorePosts,
-    deletePost,
-    loadPostForEditing,
-    setStatusFilter,
-  } = usePostStore();
-
-  const [snackbarMessage, setSnackbarMessage] = React.useState<string | null>(null);
-  const [isPullRefreshing, setIsPullRefreshing] = React.useState(false);
+  const list = usePostListStore();
+  const [snackbar, setSnackbar] = useState<string | null>(null);
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const [query, setQuery] = useState(list.search);
 
   useFocusEffect(
     useCallback(() => {
-      fetchPosts(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [statusFilter]),
+      void usePostListStore.getState().refresh();
+    }, []),
   );
 
-  function handlePostPress(post: GhostPost): void {
-    loadPostForEditing(post);
-    router.navigate('/(drawer)/compose');
+  useEffect(() => {
+    const timer = setTimeout(() => list.setSearch(query.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  function openPost(post: GhostPost): void {
+    const editor = useEditorStore.getState();
+    const go = (): void => {
+      router.navigate('/(drawer)/compose');
+      editor.openPost(post.id).catch((err) => {
+        // Back to the list so the error is shown where the user can act on it.
+        router.navigate('/(drawer)/posts');
+        setSnackbar(err instanceof Error ? err.message : 'Impossible d’ouvrir le post.');
+      });
+    };
+    // Re-opening the post already in the editor keeps its unsaved changes.
+    if (editor.ghostId === post.id) router.navigate('/(drawer)/compose');
+    else confirmDiscardChanges(go);
   }
 
-  async function handleDeletePost(id: string): Promise<void> {
+  function newPost(): void {
+    confirmDiscardChanges(() => {
+      useEditorStore.getState().newPost();
+      router.navigate('/(drawer)/compose');
+    });
+  }
+
+  async function deletePost(id: string): Promise<void> {
     try {
-      await deletePost(id);
-      setSnackbarMessage('Post supprimé.');
-    } catch {
-      setSnackbarMessage('Impossible de supprimer le post.');
+      await list.deletePost(id);
+      if (useEditorStore.getState().ghostId === id) useEditorStore.getState().newPost();
+      setSnackbar('Post supprimé.');
+    } catch (err) {
+      setSnackbar(err instanceof Error ? err.message : 'Impossible de supprimer le post.');
     }
   }
 
-  function handleFilterChange(filter: PostFilter | 'all'): void {
-    setStatusFilter(filter as 'all' | 'draft' | 'published');
-  }
-
-  function handleEndReached(): void {
-    if (!isLoading && hasMore) {
-      fetchMorePosts();
-    }
-  }
-
-  function renderHeader(): React.JSX.Element {
-    return (
-      <View style={styles.filterBar}>
-        {FILTERS.map((f) => (
-          <Chip
-            key={f.key}
-            selected={statusFilter === f.key}
-            onPress={() => handleFilterChange(f.key)}
-            style={styles.filterChip}
-            compact
-          >
-            {f.label}
-          </Chip>
-        ))}
-      </View>
-    );
-  }
-
-  async function handlePullRefresh(): Promise<void> {
+  async function pullRefresh(): Promise<void> {
     setIsPullRefreshing(true);
-    await fetchPosts(true);
+    await list.refresh();
     setIsPullRefreshing(false);
   }
 
-  function renderFooter(): React.JSX.Element | null {
-    if (!isLoading || posts.length === 0 || isPullRefreshing) return null;
-    return <ActivityIndicator style={styles.footerLoader} />;
-  }
-
   function renderEmpty(): React.JSX.Element {
-    if (isLoading) {
+    if (list.isLoading) {
       return (
         <View style={styles.centered}>
           <ActivityIndicator size="large" />
         </View>
       );
     }
-
-    if (error) {
+    if (list.error) {
       return (
         <View style={styles.centered}>
-          <Text variant="bodyLarge" style={{ color: colors.error, textAlign: 'center' }}>
-            {error}
-          </Text>
-          <Button onPress={() => fetchPosts(true)} style={styles.retryButton}>
-            Réessayer
-          </Button>
+          <Text variant="bodyLarge" style={{ color: colors.error, textAlign: 'center' }}>{list.error}</Text>
+          <Button onPress={() => void list.refresh()}>Réessayer</Button>
         </View>
       );
     }
-
+    if (list.search) {
+      return (
+        <View style={styles.centered}>
+          <Text variant="titleMedium" style={{ color: colors.onSurface }}>Aucun résultat</Text>
+          <Text variant="bodyMedium" style={{ color: colors.onSurfaceVariant }}>pour « {list.search} »</Text>
+        </View>
+      );
+    }
     return (
       <View style={styles.centered}>
-        <Image
-          source={require('../../assets/icon.png')}
-          style={styles.emptyIcon}
-          resizeMode="contain"
-        />
-        <Text variant="titleMedium" style={{ color: colors.onSurface, textAlign: 'center' }}>
-          Aucun post
-        </Text>
-        <Text variant="bodyMedium" style={{ color: colors.onSurfaceVariant, textAlign: 'center' }}>
-          Créez votre premier article
-        </Text>
-        <Button
-          mode="contained"
-          onPress={() => router.navigate('/(drawer)/compose')}
-          style={styles.emptyButton}
-        >
-          Nouveau post
-        </Button>
+        <Image source={require('../../assets/icon.png')} style={styles.emptyIcon} resizeMode="contain" />
+        <Text variant="titleMedium" style={{ color: colors.onSurface }}>Aucun post</Text>
+        <Text variant="bodyMedium" style={{ color: colors.onSurfaceVariant }}>Créez votre premier article</Text>
+        <Button mode="contained" onPress={newPost}>Nouveau post</Button>
       </View>
     );
   }
@@ -141,31 +114,45 @@ export default function PostsScreen(): React.JSX.Element {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
-        data={posts}
+        data={list.posts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <PostListItem
-            post={item}
-            onPress={handlePostPress}
-            onDelete={handleDeletePost}
-          />
+          <PostListItem post={item} onPress={openPost} onDelete={(id) => void deletePost(id)} />
         )}
-        ListHeaderComponent={renderHeader}
-        ListFooterComponent={renderFooter}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Searchbar
+              placeholder="Rechercher un titre"
+              value={query}
+              onChangeText={setQuery}
+              style={styles.search}
+              inputStyle={styles.searchInput}
+            />
+            <View style={styles.filters}>
+              {FILTERS.map((f) => (
+                <Chip key={f.key} compact selected={list.filter === f.key} onPress={() => list.setFilter(f.key)}>
+                  {f.label}
+                </Chip>
+              ))}
+            </View>
+          </View>
+        }
+        ListFooterComponent={
+          list.isLoading && list.posts.length > 0 && !isPullRefreshing
+            ? <ActivityIndicator style={styles.footerLoader} />
+            : null
+        }
         ListEmptyComponent={renderEmpty}
-        onEndReached={handleEndReached}
+        onEndReached={() => void list.loadMore()}
         onEndReachedThreshold={0.4}
-        onRefresh={handlePullRefresh}
+        onRefresh={() => void pullRefresh()}
         refreshing={isPullRefreshing}
-        contentContainerStyle={posts.length === 0 ? styles.emptyContainer : styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={list.posts.length === 0 ? styles.grow : styles.listContent}
       />
 
-      <Snackbar
-        visible={!!snackbarMessage}
-        onDismiss={() => setSnackbarMessage(null)}
-        duration={2500}
-      >
-        {snackbarMessage}
+      <Snackbar visible={!!snackbar} onDismiss={() => setSnackbar(null)} duration={3000}>
+        {snackbar}
       </Snackbar>
     </View>
   );
@@ -178,17 +165,25 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 24,
   },
-  emptyContainer: {
+  grow: {
     flexGrow: 1,
   },
-  filterBar: {
-    flexDirection: 'row',
-    gap: 8,
+  header: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
+    gap: 10,
   },
-  filterChip: {
-    borderRadius: 20,
+  search: {
+    height: 44,
+  },
+  searchInput: {
+    minHeight: 0,
+  },
+  filters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   centered: {
     flex: 1,
@@ -200,14 +195,7 @@ const styles = StyleSheet.create({
   emptyIcon: {
     width: 64,
     height: 64,
-    marginBottom: 8,
     opacity: 0.4,
-  },
-  emptyButton: {
-    marginTop: 4,
-  },
-  retryButton: {
-    marginTop: 8,
   },
   footerLoader: {
     paddingVertical: 16,

@@ -1,22 +1,10 @@
-/**
- * @file src/api/ghostJwt.ts
- * @description Génération du JWT pour l'authentification Ghost Admin API.
- *              Utilise @noble/hashes (pure JS, sans dépendance WebCrypto/globalThis.crypto)
- *              pour éviter le crash Hermes "Property 'crypto' doesn't exist".
- *
- * @exports generateGhostJwt
- *
- * @security La clé brute n'est jamais loggée.
- *           Le JWT généré a une durée de vie de 5 minutes maximum.
- */
+// SPDX-License-Identifier: GPL-3.0-or-later
+// HS256 JWT for the Ghost Admin API. Uses @noble/hashes (pure JS) because Hermes has no
+// WebCrypto. Tokens live 5 minutes and are never cached; the raw key is never logged.
 
 import { hmac } from '@noble/hashes/hmac';
 import { sha256 } from '@noble/hashes/sha2';
 import { InvalidApiKeyError, JwtSigningError } from './ghostTypes';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function hexToUint8Array(hex: string): Uint8Array {
   if (hex.length % 2 !== 0) {
@@ -33,7 +21,7 @@ function hexToUint8Array(hex: string): Uint8Array {
   return bytes;
 }
 
-/** Encode un objet JSON ou des bytes en base64url sans dépendance btoa. */
+// No btoa on Hermes.
 function base64url(input: Record<string, unknown> | Uint8Array): string {
   const bytes =
     input instanceof Uint8Array
@@ -54,19 +42,7 @@ function base64url(input: Record<string, unknown> | Uint8Array): string {
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-// ---------------------------------------------------------------------------
-// JWT
-// ---------------------------------------------------------------------------
-
-/**
- * Génère un JWT HS256 signé pour l'API Ghost Admin.
- * Utilise HMAC-SHA256 via @noble/hashes — aucune dépendance sur crypto.subtle.
- *
- * @param apiKey - Clé Admin API au format `id:secret` (valeurs hexadécimales)
- * @returns JWT signé prêt pour le header `Authorization: Ghost <token>`
- * @throws InvalidApiKeyError si le format de la clé est incorrect
- * @throws JwtSigningError si la signature échoue
- */
+/** @param apiKey Admin API key, `id:secret` in hex. */
 export function generateGhostJwt(apiKey: string): string {
   const parts = apiKey.split(':');
   if (parts.length !== 2 || !parts[0] || !parts[1]) {

@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import React from 'react';
 import { View, Image, StyleSheet, Pressable } from 'react-native';
 import { Text, IconButton, ActivityIndicator, useTheme } from 'react-native-paper';
 
-import { usePostStore } from '../store/postStore';
-import { useFeatureImageUpload } from '../hooks/useFeatureImageUpload';
+import { useEditorStore } from '../store/editorStore';
+import { useImageUpload } from '../hooks/useImageUpload';
+
+const MAX_WIDTH = 2000;
 
 interface Props {
   disabled?: boolean;
@@ -11,16 +14,21 @@ interface Props {
 
 export function FeatureImagePicker({ disabled = false }: Props): React.JSX.Element {
   const { colors } = useTheme();
-  const featureImage = usePostStore((s) => s.currentPost?.featureImage ?? null);
-  const setFeatureImage = usePostStore((s) => s.setFeatureImage);
-  const { isUploading, pickAndUpload } = useFeatureImageUpload();
+  const featureImage = useEditorStore((s) => s.fields.featureImage);
+  const update = useEditorStore((s) => s.update);
+  const { isUploading, pickAndUpload } = useImageUpload(MAX_WIDTH);
+
+  async function pick(): Promise<void> {
+    const url = await pickAndUpload();
+    if (url) update({ featureImage: url });
+  }
 
   const isDisabled = disabled || isUploading;
 
   if (featureImage) {
     return (
       <View style={styles.imageWrapper}>
-        <Pressable onPress={() => !isDisabled && pickAndUpload(setFeatureImage)} disabled={isDisabled}>
+        <Pressable onPress={pick} disabled={isDisabled}>
           <Image source={{ uri: featureImage }} style={styles.thumbnail} resizeMode="cover" />
           {isUploading && (
             <View style={styles.uploadOverlay}>
@@ -34,7 +42,7 @@ export function FeatureImagePicker({ disabled = false }: Props): React.JSX.Eleme
           iconColor="#fff"
           containerColor="rgba(0,0,0,0.55)"
           style={styles.removeButton}
-          onPress={() => setFeatureImage(null)}
+          onPress={() => update({ featureImage: null })}
           disabled={isDisabled}
           accessibilityLabel="Supprimer l'image à la une"
         />
@@ -44,7 +52,7 @@ export function FeatureImagePicker({ disabled = false }: Props): React.JSX.Eleme
 
   return (
     <Pressable
-      onPress={() => !isDisabled && pickAndUpload(setFeatureImage)}
+      onPress={pick}
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.emptyPicker,

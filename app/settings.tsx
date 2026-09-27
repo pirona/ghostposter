@@ -1,335 +1,226 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import React, { useState } from 'react';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
 import {
-  StyleSheet,
-  View,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
-import {
+  ActivityIndicator,
+  Button,
+  Divider,
+  HelperText,
+  List,
+  Modal,
+  Portal,
+  SegmentedButtons,
+  Snackbar,
+  Switch,
   Text,
   TextInput,
-  Button,
-  FAB,
-  Portal,
-  Modal,
-  Snackbar,
-  HelperText,
-  ActivityIndicator,
-  Divider,
-  List,
-  SegmentedButtons,
-  Switch,
   useTheme,
 } from 'react-native-paper';
 import Constants from 'expo-constants';
 
 import { useInstances, InstanceFormData, InstanceFormErrors } from '../src/hooks/useInstances';
-import { useSettingsStore, ThemePreference, DefaultPostStatus } from '../src/store/settingsStore';
+import { useSettingsStore, ThemePreference } from '../src/store/settingsStore';
+import { GhostInstance } from '../src/store/instanceStore';
 import { InstanceListItem } from '../src/components/InstanceListItem';
 import { TagChipList } from '../src/components/TagChipList';
-import { GhostInstance } from '../src/store/instanceStore';
+import { confirmDiscardChanges } from '../src/utils/editorGuard';
 
-interface FormState {
-  name: string;
-  url: string;
-  apiKey: string;
-}
-
-const EMPTY_FORM: FormState = { name: '', url: '', apiKey: '' };
+const EMPTY_FORM: InstanceFormData = { name: '', url: '', apiKey: '' };
 
 export default function SettingsScreen(): React.JSX.Element {
-  const {
-    instances,
-    activeInstanceId,
-    isLoading,
-    isTesting,
-    addInstanceWithValidation,
-    removeInstanceWithConfirm,
-    setActiveInstance,
-  } = useInstances();
-
-  const {
-    themePreference,
-    defaultPostStatus,
-    confirmDelete,
-    voiceVocabulary,
-    setThemePreference,
-    setDefaultPostStatus,
-    setConfirmDelete,
-    setVoiceVocabulary,
-  } = useSettingsStore();
-
   const { colors } = useTheme();
+  const instances = useInstances();
+  const settings = useSettingsStore();
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [formErrors, setFormErrors] = useState<InstanceFormErrors>({});
-  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+  // `editing` undefined = modal closed, null = adding, instance = editing it.
+  const [editing, setEditing] = useState<GhostInstance | null | undefined>(undefined);
+  const [form, setForm] = useState<InstanceFormData>(EMPTY_FORM);
+  const [errors, setErrors] = useState<InstanceFormErrors>({});
+  const [snackbar, setSnackbar] = useState<string | null>(null);
 
   const appVersion = Constants.expoConfig?.version ?? '—';
+  const busy = instances.isTesting;
 
-  function updateField(field: keyof FormState, value: string): void {
+  function openForm(instance: GhostInstance | null): void {
+    // The key is never shown back: an empty field while editing keeps the stored one.
+    setForm(instance ? { name: instance.name, url: instance.url, apiKey: '' } : EMPTY_FORM);
+    setErrors({});
+    setEditing(instance);
+  }
+
+  function updateField(field: keyof InstanceFormData, value: string): void {
     setForm((prev) => ({ ...prev, [field]: value }));
-    if (formErrors[field]) {
-      setFormErrors((prev) => ({ ...prev, [field]: undefined }));
-    }
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   }
 
-  function openModal(): void {
-    setForm(EMPTY_FORM);
-    setFormErrors({});
-    setModalVisible(true);
-  }
-
-  function closeModal(): void {
-    setModalVisible(false);
-    setForm(EMPTY_FORM);
-    setFormErrors({});
-  }
-
-  async function handleSubmit(): Promise<void> {
-    const errors: InstanceFormErrors = {};
-    const data: InstanceFormData = { name: form.name, url: form.url, apiKey: form.apiKey };
-
-    const success = await addInstanceWithValidation(data, (field, message) => {
-      errors[field] = message;
-    });
-
-    if (!success) {
-      setFormErrors(errors);
+  async function submit(): Promise<void> {
+    const result = await instances.saveInstance(form, editing ?? undefined);
+    if (result) {
+      setErrors(result);
       return;
     }
-
-    closeModal();
-    setSnackbarMessage('Instance ajoutée et connectée avec succès.');
+    setSnackbar(editing ? 'Instance mise à jour.' : 'Instance ajoutée et connectée.');
+    setEditing(undefined);
   }
 
-  async function handleSelectInstance(instance: GhostInstance): Promise<void> {
-    if (instance.id === activeInstanceId) return;
-    try {
-      await setActiveInstance(instance.id);
-      setSnackbarMessage(`Instance "${instance.name}" sélectionnée.`);
-    } catch (err) {
-      console.error('Erreur setActiveInstance:', err instanceof Error ? err.message : err);
-    }
+  function select(instance: GhostInstance): void {
+    confirmDiscardChanges(() => {
+      instances.setActiveInstance(instance.id)
+        .then(() => setSnackbar(`Instance « ${instance.name} » activée.`))
+        .catch(() => undefined);
+    });
   }
 
-  const isSubmitting = isTesting;
+  function removeInstance(instance: GhostInstance): void {
+    const remove = (): void =>
+      instances.removeInstanceWithConfirm(instance, () => setSnackbar('Instance supprimée.'));
+    // Removing the active instance switches away from it, which resets the editor.
+    if (instance.id === instances.activeInstanceId) confirmDiscardChanges(remove);
+    else remove();
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scroll}>
+        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>Instances Ghost</List.Subheader>
+        <View style={[styles.card, styles.flushCard, { backgroundColor: colors.surface }]}>
+          {instances.isLoading ? (
+            <ActivityIndicator style={styles.loader} />
+          ) : instances.instances.length === 0 ? (
+            <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.onSurfaceVariant }]}>
+              Aucune instance configurée.
+            </Text>
+          ) : (
+            instances.instances.map((item, i) => (
+              <View key={item.id}>
+                {i > 0 && <Divider />}
+                <InstanceListItem
+                  instance={item}
+                  isActive={item.id === instances.activeInstanceId}
+                  onSelect={select}
+                  onEdit={openForm}
+                  onDelete={removeInstance}
+                />
+              </View>
+            ))
+          )}
+          <Button icon="plus" mode="text" onPress={() => openForm(null)} style={styles.addButton}>
+            Ajouter une instance
+          </Button>
+        </View>
 
-        {/* ── Apparence ── */}
-        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>
-          Apparence
-        </List.Subheader>
+        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>Éditeur</List.Subheader>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabel}>
+              <Text variant="bodyMedium" style={{ color: colors.onSurface }}>Confirmation avant suppression</Text>
+              <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant }}>
+                Demander confirmation avant de supprimer un post depuis la liste
+              </Text>
+            </View>
+            <Switch value={settings.confirmDelete} onValueChange={settings.setConfirmDelete} color={colors.primary} />
+          </View>
+        </View>
+
+        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>Reconnaissance vocale</List.Subheader>
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <Text variant="bodyMedium" style={[styles.settingLabel, { color: colors.onSurface }]}>
-            Thème
+            Vocabulaire spécifique
           </Text>
+          <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant }}>
+            Termes techniques à privilégier lors de la dictée (ex : HAProxy, n8n, Kubernetes)
+          </Text>
+          <TagChipList
+            tags={settings.voiceVocabulary}
+            onTagsChange={settings.setVoiceVocabulary}
+            placeholder="Ajouter des termes (séparés par une virgule)"
+          />
+        </View>
+
+        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>Apparence</List.Subheader>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <SegmentedButtons
-            value={themePreference}
-            onValueChange={(v) => setThemePreference(v as ThemePreference)}
+            value={settings.themePreference}
+            onValueChange={(v) => void settings.setThemePreference(v as ThemePreference)}
             buttons={[
               { value: 'light', label: 'Clair', icon: 'white-balance-sunny' },
               { value: 'system', label: 'Auto', icon: 'brightness-auto' },
               { value: 'dark', label: 'Sombre', icon: 'weather-night' },
             ]}
-            style={styles.segmented}
           />
         </View>
 
-        {/* ── Éditeur ── */}
-        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>
-          Éditeur
-        </List.Subheader>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <Text variant="bodyMedium" style={[styles.settingLabel, { color: colors.onSurface }]}>
-            Statut par défaut des nouveaux posts
-          </Text>
-          <SegmentedButtons
-            value={defaultPostStatus}
-            onValueChange={(v) => setDefaultPostStatus(v as DefaultPostStatus)}
-            buttons={[
-              { value: 'draft', label: 'Brouillon', icon: 'pencil' },
-              { value: 'published', label: 'Publié', icon: 'send' },
-            ]}
-            style={styles.segmented}
-          />
-
-          <Divider style={styles.inCardDivider} />
-
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabel}>
-              <Text variant="bodyMedium" style={{ color: colors.onSurface }}>
-                Confirmation avant suppression
-              </Text>
-              <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant }}>
-                Demander confirmation avant de supprimer un post
-              </Text>
-            </View>
-            <Switch
-              value={confirmDelete}
-              onValueChange={setConfirmDelete}
-              color={colors.primary}
-            />
-          </View>
-        </View>
-
-        {/* ── Reconnaissance vocale ── */}
-        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>
-          Reconnaissance vocale
-        </List.Subheader>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <Text variant="bodyMedium" style={[styles.settingLabel, { color: colors.onSurface }]}>
-            Vocabulaire spécifique
-          </Text>
-          <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant, marginBottom: 8 }}>
-            Termes techniques à privilégier lors de la dictée (ex : HAProxy, n8n, Kubernetes)
-          </Text>
-          <TagChipList tags={voiceVocabulary} onTagsChange={setVoiceVocabulary} />
-        </View>
-
-        {/* ── Instances Ghost ── */}
-        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>
-          Instances Ghost
-        </List.Subheader>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          {isLoading ? (
-            <ActivityIndicator style={styles.loader} />
-          ) : instances.length === 0 ? (
-            <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.onSurfaceVariant }]}>
-              Aucune instance configurée. Appuyez sur + pour en ajouter une.
-            </Text>
-          ) : (
-            <FlatList
-              data={instances}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <InstanceListItem
-                  instance={item}
-                  isActive={item.id === activeInstanceId}
-                  onPress={handleSelectInstance}
-                  onDelete={() => removeInstanceWithConfirm(item)}
-                />
-              )}
-              ItemSeparatorComponent={() => <Divider />}
-            />
-          )}
-        </View>
-
-        {/* ── À propos ── */}
-        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>
-          À propos
-        </List.Subheader>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+        <List.Subheader style={[styles.subheader, { color: colors.primary }]}>À propos</List.Subheader>
+        <View style={[styles.card, styles.flushCard, { backgroundColor: colors.surface }]}>
           <List.Item
             title="Version"
-            right={() => (
-              <Text variant="bodyMedium" style={{ color: colors.onSurfaceVariant, alignSelf: 'center' }}>
-                {appVersion}
-              </Text>
-            )}
-            titleStyle={{ color: colors.onSurface }}
+            right={() => <Text variant="bodyMedium" style={styles.alignCenter}>{appVersion}</Text>}
           />
           <Divider />
-          <List.Item
-            title="Ghost Admin API"
-            description="v5 compatible"
-            titleStyle={{ color: colors.onSurface }}
-            descriptionStyle={{ color: colors.onSurfaceVariant }}
-          />
+          <List.Item title="Ghost Admin API" description="v5 compatible" />
         </View>
-
-        <View style={styles.bottomPad} />
       </ScrollView>
-
-      <FAB
-        icon="plus"
-        color={colors.surface}
-        style={[styles.fab, { backgroundColor: colors.primary }]}
-        onPress={openModal}
-      />
 
       <Portal>
         <Modal
-          visible={modalVisible}
-          onDismiss={closeModal}
+          visible={editing !== undefined}
+          onDismiss={() => !busy && setEditing(undefined)}
           contentContainerStyle={[styles.modal, { backgroundColor: colors.surface }]}
         >
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <ScrollView>
-              <Text variant="titleLarge" style={[styles.modalTitle, { color: colors.onSurface }]}>
-                Nouvelle instance Ghost
+          <KeyboardAvoidingView behavior="height">
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text variant="titleLarge" style={styles.modalTitle}>
+                {editing ? 'Modifier l’instance' : 'Nouvelle instance Ghost'}
               </Text>
-              <Divider style={styles.divider} />
 
               <TextInput
                 label="Nom"
                 value={form.name}
                 onChangeText={(v) => updateField('name', v)}
                 mode="outlined"
-                placeholder="Ex : Blog perso, Billisdead"
-                error={!!formErrors.name}
+                placeholder="Ex : Blog perso"
+                error={!!errors.name}
                 style={styles.input}
-                disabled={isSubmitting}
+                disabled={busy}
               />
-              <HelperText type="error" visible={!!formErrors.name}>
-                {formErrors.name}
-              </HelperText>
+              <HelperText type="error" visible={!!errors.name}>{errors.name}</HelperText>
 
               <TextInput
                 label="URL de base"
                 value={form.url}
                 onChangeText={(v) => updateField('url', v)}
                 mode="outlined"
-                placeholder="https://ghost.example.fr"
+                placeholder="https://blog.example.internal"
                 keyboardType="url"
                 autoCapitalize="none"
-                error={!!formErrors.url}
+                autoCorrect={false}
+                error={!!errors.url}
                 style={styles.input}
-                disabled={isSubmitting}
+                disabled={busy}
               />
-              <HelperText type="error" visible={!!formErrors.url}>
-                {formErrors.url}
-              </HelperText>
+              <HelperText type="error" visible={!!errors.url}>{errors.url}</HelperText>
 
               <TextInput
-                label="Clé Admin API"
+                label={editing ? 'Nouvelle clé Admin API' : 'Clé Admin API'}
                 value={form.apiKey}
                 onChangeText={(v) => updateField('apiKey', v)}
                 mode="outlined"
-                placeholder="id:secret (format hexadécimal)"
+                placeholder={editing ? 'Laisser vide pour conserver la clé actuelle' : 'id:secret (hexadécimal)'}
                 autoCapitalize="none"
                 autoCorrect={false}
                 secureTextEntry
-                error={!!formErrors.apiKey}
+                error={!!errors.apiKey}
                 style={styles.input}
-                disabled={isSubmitting}
+                disabled={busy}
               />
-              <HelperText type="error" visible={!!formErrors.apiKey}>
-                {formErrors.apiKey}
-              </HelperText>
-
-              <HelperText type="info" visible>
-                Générez votre clé dans Ghost Admin → Paramètres → Intégrations.
+              <HelperText type={errors.apiKey ? 'error' : 'info'} visible>
+                {errors.apiKey ?? 'Ghost Admin → Paramètres → Intégrations → clé « Admin API ».'}
               </HelperText>
 
               <View style={styles.modalActions}>
-                <Button onPress={closeModal} disabled={isSubmitting}>
-                  Annuler
-                </Button>
-                <Button
-                  mode="contained"
-                  onPress={handleSubmit}
-                  loading={isSubmitting}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Test en cours…' : 'Ajouter'}
+                <Button onPress={() => setEditing(undefined)} disabled={busy}>Annuler</Button>
+                <Button mode="contained" onPress={() => void submit()} loading={busy} disabled={busy}>
+                  {busy ? 'Test en cours…' : editing ? 'Enregistrer' : 'Ajouter'}
                 </Button>
               </View>
             </ScrollView>
@@ -337,12 +228,8 @@ export default function SettingsScreen(): React.JSX.Element {
         </Modal>
       </Portal>
 
-      <Snackbar
-        visible={!!snackbarMessage}
-        onDismiss={() => setSnackbarMessage(null)}
-        duration={3000}
-      >
-        {snackbarMessage}
+      <Snackbar visible={!!snackbar} onDismiss={() => setSnackbar(null)} duration={3000}>
+        {snackbar}
       </Snackbar>
     </View>
   );
@@ -353,7 +240,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scroll: {
-    paddingBottom: 100,
+    paddingBottom: 32,
   },
   subheader: {
     fontSize: 12,
@@ -368,15 +255,14 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  flushCard: {
+    paddingHorizontal: 0,
+    paddingVertical: 4,
+    gap: 0,
+    overflow: 'hidden',
+  },
   settingLabel: {
     fontWeight: '500',
-    marginBottom: 4,
-  },
-  segmented: {
-    marginTop: 4,
-  },
-  inCardDivider: {
-    marginVertical: 4,
   },
   switchRow: {
     flexDirection: 'row',
@@ -393,15 +279,15 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    paddingVertical: 8,
+    paddingVertical: 12,
   },
-  bottomPad: {
-    height: 16,
+  addButton: {
+    alignSelf: 'flex-start',
+    marginHorizontal: 8,
+    marginVertical: 4,
   },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
+  alignCenter: {
+    alignSelf: 'center',
   },
   modal: {
     margin: 20,
@@ -410,19 +296,15 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontWeight: '700',
-    marginBottom: 8,
-  },
-  divider: {
     marginBottom: 16,
   },
   input: {
-    marginBottom: 2,
     backgroundColor: 'transparent',
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 8,
-    marginTop: 16,
+    marginTop: 8,
   },
 });

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { Redirect } from 'expo-router';

@@ -6,22 +6,19 @@ import * as ImageManipulator from 'expo-image-manipulator';
 
 import { uploadImage } from '../api/ghostClient';
 
-const MAX_WIDTH = 1920;
+const JPEG_QUALITY = 0.85;
 
-export function useImageUpload() {
+/** Picks one gallery image, downsizes it to `maxWidth` and uploads it; resolves to its URL or null. */
+export function useImageUpload(maxWidth: number) {
   const [isUploading, setIsUploading] = useState(false);
 
-  async function pickAndUpload(onInsert: (markdown: string) => void): Promise<void> {
+  async function pickAndUpload(): Promise<string | null> {
     setIsUploading(true);
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        console.warn('[ImageUpload] Permission galerie refusée');
-        Alert.alert(
-          'Permission refusée',
-          "L'accès à la galerie est nécessaire pour insérer des images dans vos articles.",
-        );
-        return;
+        Alert.alert('Permission refusée', "L'accès à la galerie est nécessaire pour ajouter des images.");
+        return null;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -30,28 +27,19 @@ export function useImageUpload() {
         allowsEditing: false,
         allowsMultipleSelection: false,
       });
-
-      if (result.canceled || !result.assets[0]) {
-        return;
-      }
-
-      const { uri, width } = result.assets[0];
+      const asset = result.canceled ? undefined : result.assets[0];
+      if (!asset) return null;
 
       const actions: ImageManipulator.Action[] =
-        width && width > MAX_WIDTH ? [{ resize: { width: MAX_WIDTH } }] : [];
-
-      const manipulated = await ImageManipulator.manipulateAsync(
-        uri,
-        actions,
-        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
-      );
-
-      const imageUrl = await uploadImage(manipulated.uri);
-      onInsert(`\n![](${imageUrl})`);
+        asset.width && asset.width > maxWidth ? [{ resize: { width: maxWidth } }] : [];
+      const manipulated = await ImageManipulator.manipulateAsync(asset.uri, actions, {
+        compress: JPEG_QUALITY,
+        format: ImageManipulator.SaveFormat.JPEG,
+      });
+      return await uploadImage(manipulated.uri);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Impossible d'uploader l'image.";
-      console.error('[ImageUpload] Erreur:', err);
-      Alert.alert("Échec de l'upload", message);
+      Alert.alert("Échec de l'upload", err instanceof Error ? err.message : "Impossible d'uploader l'image.");
+      return null;
     } finally {
       setIsUploading(false);
     }
